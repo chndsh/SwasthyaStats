@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: health
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:dev@postgres:5432/health
+      API_KEY: change-me
+      SERVER_SECRET: dev-secret-key-32-chars-long-abc123!
+      DEV_CORS: "false"
+      STORAGE_PATH: /data/files
+    volumes:
+      - ./api/app:/app/app
+      - ./api/alembic:/app/alembic
+      - ./api/tests:/app/tests
+      - files:/data/files
+      - easyocr:/root/.EasyOCR
+      - hf:/root/.cache/huggingface
+      - ./app/build/web:/app/static:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  files:
+  easyocr:
+  hf:

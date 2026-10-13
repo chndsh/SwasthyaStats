@@ -1,0 +1,250 @@
+{
+  "hba1c": {
+    "name": "HbA1c",
+    "aliases": ["glycosylated hemoglobin", "glycated hemoglobin", "glycated hb", "a1c", "hb a1c", "hba1c"],
+    "standard_unit": "%",
+    "plausible_range": [3.0, 20.0],
+    "conversions": {
+      "mmol/mol": "(x * 0.0915) + 2.15"
+    }
+  },
+  "fasting_blood_glucose": {
+    "name": "Fasting Blood Glucose",
+    "aliases": ["fbs", "fasting blood sugar", "glucose fasting", "blood sugar fasting", "fasting plasma glucose", "fpg"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [30.0, 600.0],
+    "conversions": {
+      "mmol/L": "x * 18.0182"
+    }
+  },
+  "post_prandial_blood_glucose": {
+    "name": "Post Prandial Blood Glucose",
+    "aliases": ["ppbs", "post prandial blood sugar", "glucose pp", "blood sugar pp", "2h post prandial glucose"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [40.0, 700.0],
+    "conversions": {
+      "mmol/L": "x * 18.0182"
+    }
+  },
+  "total_cholesterol": {
+    "name": "Total Cholesterol",
+    "aliases": ["cholesterol total", "serum cholesterol", "tc", "total cholestrol"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [50.0, 500.0],
+    "conversions": {
+      "mmol/L": "x * 38.67"
+    }
+  },
+  "hdl_cholesterol": {
+    "name": "HDL Cholesterol",
+    "aliases": ["hdl", "hdl-c", "high density lipoprotein", "serum hdl cholesterol"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [10.0, 150.0],
+    "conversions": {
+      "mmol/L": "x * 38.67"
+    }
+  },
+  "ldl_cholesterol": {
+    "name": "LDL Cholesterol",
+    "aliases": ["ldl", "ldl-c", "low density lipoprotein", "calculated ldl", "serum ldl cholesterol"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [20.0, 350.0],
+    "conversions": {
+      "mmol/L": "x * 38.67"
+    }
+  },
+  "triglycerides": {
+    "name": "Triglycerides",
+    "aliases": ["tg", "serum triglycerides", "triglyceride"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [20.0, 1500.0],
+    "conversions": {
+      "mmol/L": "x * 88.57"
+    }
+  },
+  "hemoglobin": {
+    "name": "Hemoglobin",
+    "aliases": ["hb", "hgb", "total hemoglobin"],
+    "standard_unit": "g/dL",
+    "plausible_range": [3.0, 25.0],
+    "conversions": {
+      "g/L": "x / 10.0"
+    }
+  },
+  "white_blood_cell_count": {
+    "name": "White Blood Cell Count",
+    "aliases": ["wbc", "total wbc", "tlc", "total leukocyte count", "leukocytes"],
+    "standard_unit": "/mcL",
+    "plausible_range": [500.0, 100000.0],
+    "conversions": {
+      "10^3/uL": "x * 1000.0",
+      "x10^9/L": "x * 1000.0"
+    }
+  },
+  "platelet_count": {
+    "name": "Platelet Count",
+    "aliases": ["platelets", "plt", "total platelets"],
+    "standard_unit": "/mcL",
+    "plausible_range": [10000.0, 2000000.0],
+    "conversions": {
+      "lakhs/cumm": "x * 100000.0",
+      "10^3/uL": "x * 1000.0"
+    }
+  },
+  "creatinine": {
+    "name": "Serum Creatinine",
+    "aliases": ["creatinine", "serum creatinine", "creat", "s. creatinine"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [0.2, 15.0],
+    "conversions": {
+      "umol/L": "x / 88.4"
+    }
+  },
+  "blood_urea_nitrogen": {
+    "name": "Blood Urea Nitrogen",
+    "aliases": ["bun", "urea nitrogen"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [2.0, 150.0],
+    "conversions": {
+      "mmol/L": "x * 2.8"
+    }
+  },
+  "serum_urea": {
+    "name": "Serum Urea",
+    "aliases": ["urea", "blood urea"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [5.0, 300.0],
+    "conversions": {
+      "mmol/L": "x * 6.0"
+    }
+  },
+  "serum_uric_acid": {
+    "name": "Serum Uric Acid",
+    "aliases": ["uric acid", "s. uric acid"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [1.0, 20.0],
+    "conversions": {
+      "umol/L": "x / 59.48"
+    }
+  },
+  "total_bilirubin": {
+    "name": "Total Bilirubin",
+    "aliases": ["bilirubin total", "s. bilirubin total", "total serum bilirubin", "t. bilirubin"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [0.1, 30.0],
+    "conversions": {
+      "umol/L": "x / 17.1"
+    }
+  },
+  "direct_bilirubin": {
+    "name": "Direct Bilirubin",
+    "aliases": ["bilirubin direct", "conjugated bilirubin", "d. bilirubin"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [0.0, 20.0],
+    "conversions": {
+      "umol/L": "x / 17.1"
+    }
+  },
+  "sgpt_alt": {
+    "name": "Alanine Aminotransferase (SGPT / ALT)",
+    "aliases": ["sgpt", "alt", "alanine aminotransferase", "serum glutamic pyruvic transaminase"],
+    "standard_unit": "U/L",
+    "plausible_range": [2.0, 3000.0],
+    "conversions": {}
+  },
+  "sgot_ast": {
+    "name": "Aspartate Aminotransferase (SGOT / AST)",
+    "aliases": ["sgot", "ast", "aspartate aminotransferase", "serum glutamic oxaloacetic transaminase"],
+    "standard_unit": "U/L",
+    "plausible_range": [2.0, 3000.0],
+    "conversions": {}
+  },
+  "alkaline_phosphatase": {
+    "name": "Alkaline Phosphatase",
+    "aliases": ["alp", "alk phos", "s. alkaline phosphatase"],
+    "standard_unit": "U/L",
+    "plausible_range": [10.0, 2000.0],
+    "conversions": {}
+  },
+  "serum_albumin": {
+    "name": "Serum Albumin",
+    "aliases": ["albumin", "s. albumin"],
+    "standard_unit": "g/dL",
+    "plausible_range": [1.0, 7.0],
+    "conversions": {
+      "g/L": "x / 10.0"
+    }
+  },
+  "serum_sodium": {
+    "name": "Serum Sodium",
+    "aliases": ["sodium", "na+", "s. sodium"],
+    "standard_unit": "mmol/L",
+    "plausible_range": [100.0, 180.0],
+    "conversions": {
+      "mEq/L": "x"
+    }
+  },
+  "serum_potassium": {
+    "name": "Serum Potassium",
+    "aliases": ["potassium", "k+", "s. potassium"],
+    "standard_unit": "mmol/L",
+    "plausible_range": [1.5, 9.0],
+    "conversions": {
+      "mEq/L": "x"
+    }
+  },
+  "serum_calcium": {
+    "name": "Serum Calcium",
+    "aliases": ["calcium", "total calcium", "ca++"],
+    "standard_unit": "mg/dL",
+    "plausible_range": [4.0, 18.0],
+    "conversions": {
+      "mmol/L": "x * 4.0"
+    }
+  },
+  "tsh": {
+    "name": "Thyroid Stimulating Hormone",
+    "aliases": ["tsh", "thyrotropin", "ultrasensitive tsh"],
+    "standard_unit": "uIU/mL",
+    "plausible_range": [0.01, 100.0],
+    "conversions": {
+      "mIU/L": "x"
+    }
+  },
+  "free_t4": {
+    "name": "Free Thyroxine (FT4)",
+    "aliases": ["ft4", "free t4"],
+    "standard_unit": "ng/dL",
+    "plausible_range": [0.1, 8.0],
+    "conversions": {
+      "pmol/L": "x / 12.87"
+    }
+  },
+  "free_t3": {
+    "name": "Free Triiodothyronine (FT3)",
+    "aliases": ["ft3", "free t3"],
+    "standard_unit": "pg/mL",
+    "plausible_range": [0.5, 25.0],
+    "conversions": {
+      "pmol/L": "x * 1.536"
+    }
+  },
+  "vitamin_d": {
+    "name": "25-Hydroxy Vitamin D",
+    "aliases": ["vitamin d", "25-oh vitamin d", "vit d3", "25 hydroxy cholecalciferol"],
+    "standard_unit": "ng/mL",
+    "plausible_range": [2.0, 150.0],
+    "conversions": {
+      "nmol/L": "x / 2.496"
+    }
+  },
+  "vitamin_b12": {
+    "name": "Vitamin B12",
+    "aliases": ["vitamin b12", "b12", "cyanocobalamin", "serum b12"],
+    "standard_unit": "pg/mL",
+    "plausible_range": [50.0, 2500.0],
+    "conversions": {
+      "pmol/L": "x / 1.355"
+    }
+  }
+}
