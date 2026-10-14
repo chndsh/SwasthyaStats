@@ -1,0 +1,47 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app/features/documents/documents_screen.dart';
+import 'package:app/features/documents/documents_controller.dart';
+import 'package:app/features/documents/document_model.dart';
+
+class FakeDocumentsController extends DocumentsController {
+  @override
+  Future<List<DocumentItem>> build() async {
+    return [
+      DocumentItem(
+        id: 1,
+        filename: "cbc_report.pdf",
+        status: "needs_review",
+        pageCount: 2,
+        createdAt: DateTime.now(),
+      ),
+      DocumentItem(
+        id: 2,
+        filename: "lipid_panel.png",
+        status: "ocr",
+        pageCount: 1,
+        createdAt: DateTime.now(),
+      ),
+    ];
+  }
+}
+
+void main() {
+  testWidgets('DocumentsScreen displays documents and status chips', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          documentsControllerProvider.overrideWith(() => FakeDocumentsController()),
+        ],
+        child: const MaterialApp(home: DocumentsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('cbc_report.pdf'), findsOneWidget);
+    expect(find.text('needs_review'), findsOneWidget);
+    expect(find.text('lipid_panel.png'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsOneWidget);
+  });
+}
