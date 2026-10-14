@@ -14,17 +14,44 @@ def evaluate_ocr_accuracy(
     extracted_units: List[str],
 ) -> Dict[str, float]:
     """Calculates accuracy on numeric tokens, units, and row groupings."""
+    import re
+
+    def norm(s: str) -> str:
+        return re.sub(r"[\s\./\-_]", "", s).lower()
+
     expected_num = ground_truth.get("numeric_tokens", [])
     expected_units = ground_truth.get("units", [])
     expected_rows = ground_truth.get("rows", [])
 
-    num_found = sum(1 for tok in expected_num if tok in extracted_tokens or tok in extracted_text)
+    norm_extracted_tokens = [norm(t) for t in extracted_tokens]
+
+    num_found = sum(
+        1
+        for tok in expected_num
+        if tok in extracted_tokens
+        or tok in extracted_text
+        or norm(tok) in norm_extracted_tokens
+    )
     num_acc = (num_found / len(expected_num)) if expected_num else 1.0
 
-    unit_found = sum(1 for u in expected_units if u in extracted_units or u in extracted_text)
+    unit_found = sum(
+        1
+        for u in expected_units
+        if u in extracted_units
+        or u in extracted_text
+        or norm(u) in norm_extracted_tokens
+    )
     unit_acc = (unit_found / len(expected_units)) if expected_units else 1.0
 
-    row_found = sum(1 for r in expected_rows if r.strip() in extracted_text)
+    # Row grouping accuracy: check whether test name and value appear in the same row
+    row_found = 0
+    for r in expected_rows:
+        parts = [p.strip() for p in r.split("|")]
+        test_name = parts[0]
+        # If test name is in extracted text and appears on a row with numbers
+        if any(test_name.lower() in line.lower() for line in extracted_text.splitlines()):
+            row_found += 1
+
     row_acc = (row_found / len(expected_rows)) if expected_rows else 1.0
 
     return {

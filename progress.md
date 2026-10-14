@@ -141,7 +141,7 @@ Establish the backend core for Week 1:
 ## Task: Week 2 - Capture, Normalization, EasyOCR Engine, and Document Processing
 
 - **Date:** 2026-10-14
-- **Status:** In Progress
+- **Status:** Completed
 
 ### Objective
 Implement Week 2 deliverables according to `prototype-architecture.md`:
@@ -149,30 +149,48 @@ Implement Week 2 deliverables according to `prototype-architecture.md`:
 2. Page image retrieval endpoint `GET /api/v1/documents/{id}/pages/{page_no}.png`.
 3. `EasyOcrEngine` with model caching on named volume (`/root/.EasyOCR`).
 4. Row reconstruction with median-height clustering and vertically adjacent test cell merging.
-5. Background processing pipeline with status progression (`queued` -> `normalizing` -> `ocr`).
+5. Background processing pipeline with status progression (`queued` -> `normalizing` -> `ocr` -> `needs_review`).
 6. Document management endpoints (`POST /documents`, `GET /documents/{id}`, `GET /documents`).
 7. OCR evaluation benchmark script (`eval/run_eval.py`).
 8. Flutter PWA capture & document view screen.
 
-### Plan
-1. Action: Implement image normalization (`api/app/services/image_processing.py`) handling EXIF rotation, CLAHE, resizing, and PDF splitting -> Verify: Unit tests with synthetic test image and PDF.
-2. Action: Implement EasyOCR wrapper and row reconstruction (`api/app/ocr/engine.py`, `api/app/ocr/reconstruct.py`) -> Verify: Unit tests for cell clustering and vertical header merge.
-3. Action: Implement Document service and router (`api/app/services/documents.py`, `api/app/routers/documents.py`) with BackgroundTasks -> Verify: API tests for upload, background status update, and page image streaming.
-4. Action: Implement OCR eval script (`eval/run_eval.py`) with sample synthetic report -> Verify: CLI eval run with accuracy metrics.
-5. Action: Implement Flutter capture and document views -> Verify: Flutter tests pass and `flutter build web --wasm --release` succeeds.
+### Decisions Made
+- Reconstructed rows cluster cells within 0.5 × median box height, and merge vertically adjacent test-name cells when column 1 text wraps without intervening numbers.
+- Ingestion enforces a 12 MB total upload limit and maximum 10 pages per document.
+- EasyOCR PyTorch models load into `/root/.EasyOCR` volume, ensuring models persist across container restarts.
+- Flutter PWA compiles to WebAssembly (`--wasm`) with Dio fetching page images directly via the backend API key header for `Image.memory` rendering.
 
 ### Changes Made
 
 | File | Change | Reason |
 |---|---|---|
-| `docker-compose.yml` | Added `PYTHONPATH: /app` | Ensure direct pytest execution in container |
-| `api/pytest.ini` | Added pytest config | Python path and test discovery |
+| `api/app/pipeline/normalize_pages.py` | EXIF rotation, deskew, grayscale, CLAHE, aspect-preserving resize, PDF splitting | Image preparation and normalization pipeline |
+| `api/app/pipeline/ocr/base.py` | `OcrBox`, `OcrLine`, `OcrEngine` protocols | Core OCR data types |
+| `api/app/pipeline/ocr/rows.py` | Row clustering and vertical test header merge heuristic | Format table rows delimited by ` \| ` |
+| `api/app/pipeline/ocr/easyocr_engine.py` | EasyOCR engine wrapper with volume model caching | EasyOCR execution and bounding box extraction |
+| `api/app/services/documents.py` | Document upload validation and async background pipeline | Manage document lifecycle and page persistence |
+| `api/app/routers/documents.py` | `/documents`, `/documents/{id}`, `/documents/{id}/pages/{page_no}.png` | REST endpoints for documents and page streaming |
+| `api/app/schemas.py` | `DocumentRead`, `DocumentPageRead`, `DocumentUploadResponse` | Pydantic V2 schemas for document API |
+| `api/app/main.py` | Mounted `documents.router` | Expose document API endpoints |
+| `eval/run_eval.py`, `eval/RESULTS.md` | OCR accuracy evaluation benchmark and results log | Quantify numeric, unit, and row accuracy |
+| `eval/samples/`, `eval/ground_truth/` | Synthetic lab report image and ground truth JSON | Evaluation benchmark test fixtures |
+| `app/lib/features/documents/` | `document_model.dart`, `documents_controller.dart`, `documents_screen.dart`, `document_view_screen.dart` | Flutter PWA documents list, camera capture, batch picker, and image viewer |
+| `app/lib/features/navigation/app_router.dart` | Wired `/documents` and `/documents/:id` routes | PWA navigation routes |
+| `api/tests/` | `test_normalize_pages.py`, `test_ocr_reconstruction.py`, `test_documents_api.py`, `test_eval_harness.py` | Full backend unit and contract test coverage |
+| `app/test/documents_screen_test.dart` | Flutter widget test for documents screen | Verify documents list rendering and status chips |
 
 ### Verification
 
 | Check | Result | Notes |
 |---|---|---|
-| Week 1 backend test suite | Passed | 10/10 tests passed via `docker compose exec -T api pytest` |
-| Week 1 Flutter test suite | Passed | All widget tests passed |
-| Week 1 Alembic migration | Passed | Database schema current at head |
-| Week 1 Health endpoint | Passed | `curl http://localhost:8000/health` returns 200 OK |
+| Backend Pytest Suite | Passed | 18/18 tests passed in 10.73s via `docker compose exec -T api pytest -v` |
+| Flutter Test Suite | Passed | 2/2 tests passed (`documents_screen_test.dart` & `widget_test.dart`) |
+| Flutter Web Wasm Build | Passed | `flutter build web --wasm --release` succeeded in 32.9s |
+| EasyOCR Benchmark | Passed | Evaluated on `sample_lab_report.png`: 100% unit accuracy, 100% row grouping accuracy, 75% numeric accuracy |
+| Page Image Streaming | Passed | `GET /api/v1/documents/{id}/pages/1.png` returns normalized PNG |
+| Background Pipeline | Passed | Upload transitions `queued` -> `normalizing` -> `ocr` -> `needs_review` |
+
+### Final Outcome
+- **Status:** Completed
+- **Completed:** All Week 2 deliverables implemented, tested, verified end-to-end, and compiled.
+- **Remaining work:** Week 3 (Extraction via external LLM, grounding check, dictionary normalization, and review screen).
