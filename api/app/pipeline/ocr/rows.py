@@ -99,7 +99,7 @@ def reconstruct_rows(boxes: List[OcrBox], page_no: int = 1) -> Tuple[str, List[D
                     other_boxes.sort(key=lambda b: b.x_left)
                     combined_row = [merged_box] + other_boxes
                     merged_rows.append(combined_row)
-                    skip_next = True
+                    skip_next = True  # TODO: only merges consecutive pairs; 3-line wraps (rare) are not handled
                     continue
 
         merged_rows.append(curr_row)

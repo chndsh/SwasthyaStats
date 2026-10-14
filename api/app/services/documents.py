@@ -1,10 +1,12 @@
 import hashlib
+import io
 import logging
 import os
 from typing import List, Tuple, Optional
 import cv2
 import numpy as np
 from fastapi import UploadFile, HTTPException, status
+from PIL import Image
 from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import SessionLocal
@@ -36,6 +38,13 @@ def validate_and_create_document(
     if not files:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No files uploaded")
 
+    # I-1: Reject over-limit file count before touching the DB
+    if len(files) > MAX_PAGES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Too many files: upload limit is {MAX_PAGES} images per request",
+        )
+
     # Ensure patient exists
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
@@ -60,11 +69,23 @@ def validate_and_create_document(
         hasher.update(content)
         file_payloads.append((f.filename or "upload.png", content))
 
-    # Preliminary validation check (first file)
+    # I-2: Validate file formats synchronously before creating DB record
     first_name, first_bytes = file_payloads[0]
     is_pdf = first_name.lower().endswith(".pdf") or first_bytes.startswith(b"%PDF")
-    if is_pdf and not first_bytes.startswith(b"%PDF"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Corrupted or invalid PDF header")
+    if is_pdf:
+        if not first_bytes.startswith(b"%PDF"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Corrupted or invalid PDF header")
+    else:
+        # Validate every image file with PIL before committing to DB
+        for fname, fbytes in file_payloads:
+            try:
+                img = Image.open(io.BytesIO(fbytes))
+                img.verify()  # raises on corrupt data; file must be re-opened for further use
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File '{fname}' is not a valid image",
+                )
 
     sha256_hash = hasher.hexdigest()
     primary_filename = file_payloads[0][0] if len(file_payloads) == 1 else f"{file_payloads[0][0]} (+{len(file_payloads)-1} files)"
