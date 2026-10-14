@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.config import get_settings
 from app.routers import settings as settings_router
+from app.routers import documents as documents_router
 from app.web import configure_web
 from app.db import engine, Base
 from app.models import Patient
@@ -39,6 +40,8 @@ app = FastAPI(
 
 # API Routers
 app.include_router(settings_router.router)
+app.include_router(documents_router.router)
+
 
 
 @app.get("/health", tags=["Health"])

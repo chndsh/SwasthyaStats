@@ -1,5 +1,5 @@
 from typing import Optional, Literal, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import date, datetime
 
 
@@ -100,3 +100,34 @@ class LabReportSchema(BaseModel):
     lab_name: Optional[str] = None
     report_date: Optional[date] = None
     observations: List[LabObservationSchema] = []
+
+
+# --- Document & Page schemas (Section 13) ---
+
+class DocumentPageRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    page_no: int
+    width: Optional[int] = None
+    height: Optional[int] = None
+
+
+class DocumentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    patient_id: int
+    filename: str
+    status: str
+    page_count: int
+    created_at: datetime
+    pages: List[DocumentPageRead] = []
+
+
+
+class DocumentUploadResponse(BaseModel):
+    id: int
+    status: str
+    page_count: int
+
