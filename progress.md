@@ -194,3 +194,16 @@ Implement Week 2 deliverables according to `prototype-architecture.md`:
 - **Status:** Completed
 - **Completed:** All Week 2 deliverables implemented, tested, verified end-to-end, and compiled.
 - **Remaining work:** Week 3 (Extraction via external LLM, grounding check, dictionary normalization, and review screen).
+### 2026-10-14 — Week 2 Review + Fixes (session continued)
+
+**Self-review performed** (pro model quota exhausted, reviewer subagent returned 429):
+- I-1 fixed: reject `len(files) > MAX_PAGES` before any DB write → `400 Bad Request`
+- I-2 fixed: PIL `verify()` each image synchronously before creating `Document` record → `400 Bad Request` on corrupt files
+- M-1 verified: `ocr_lines` column is `JSONB` — no issue
+- M-2 noted: TODO comment added in `rows.py` for 3-line wrap limitation
+- M-3, M-4 deferred to Week 3
+
+**Commit:** `aa25761` — `fix(api): reject over-limit file count and corrupt images before DB commit`
+**Tests:** 18/18 backend passed post-fix
+
+**Week 2 milestone: COMPLETE ✅**
