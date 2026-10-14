@@ -136,3 +136,43 @@ Establish the backend core for Week 1:
 - **Status:** Completed
 - **Completed:** Week 1 baseline fully implemented, running, tested, and verified.
 - **Remaining work:** Week 2 (Capture, EasyOCR pipeline, row reconstruction, and background processing).
+
+
+## Task: Week 2 - Capture, Normalization, EasyOCR Engine, and Document Processing
+
+- **Date:** 2026-10-14
+- **Status:** In Progress
+
+### Objective
+Implement Week 2 deliverables according to `prototype-architecture.md`:
+1. Multi-page document upload (images/PDF) and page normalization (EXIF, deskew, grayscale, CLAHE, 2000-2500px).
+2. Page image retrieval endpoint `GET /api/v1/documents/{id}/pages/{page_no}.png`.
+3. `EasyOcrEngine` with model caching on named volume (`/root/.EasyOCR`).
+4. Row reconstruction with median-height clustering and vertically adjacent test cell merging.
+5. Background processing pipeline with status progression (`queued` -> `normalizing` -> `ocr`).
+6. Document management endpoints (`POST /documents`, `GET /documents/{id}`, `GET /documents`).
+7. OCR evaluation benchmark script (`eval/run_eval.py`).
+8. Flutter PWA capture & document view screen.
+
+### Plan
+1. Action: Implement image normalization (`api/app/services/image_processing.py`) handling EXIF rotation, CLAHE, resizing, and PDF splitting -> Verify: Unit tests with synthetic test image and PDF.
+2. Action: Implement EasyOCR wrapper and row reconstruction (`api/app/ocr/engine.py`, `api/app/ocr/reconstruct.py`) -> Verify: Unit tests for cell clustering and vertical header merge.
+3. Action: Implement Document service and router (`api/app/services/documents.py`, `api/app/routers/documents.py`) with BackgroundTasks -> Verify: API tests for upload, background status update, and page image streaming.
+4. Action: Implement OCR eval script (`eval/run_eval.py`) with sample synthetic report -> Verify: CLI eval run with accuracy metrics.
+5. Action: Implement Flutter capture and document views -> Verify: Flutter tests pass and `flutter build web --wasm --release` succeeds.
+
+### Changes Made
+
+| File | Change | Reason |
+|---|---|---|
+| `docker-compose.yml` | Added `PYTHONPATH: /app` | Ensure direct pytest execution in container |
+| `api/pytest.ini` | Added pytest config | Python path and test discovery |
+
+### Verification
+
+| Check | Result | Notes |
+|---|---|---|
+| Week 1 backend test suite | Passed | 10/10 tests passed via `docker compose exec -T api pytest` |
+| Week 1 Flutter test suite | Passed | All widget tests passed |
+| Week 1 Alembic migration | Passed | Database schema current at head |
+| Week 1 Health endpoint | Passed | `curl http://localhost:8000/health` returns 200 OK |

@@ -27,6 +27,7 @@ services:
       SERVER_SECRET: dev-secret-key-32-chars-long-abc123!
       DEV_CORS: "false"
       STORAGE_PATH: /data/files
+      PYTHONPATH: /app
     volumes:
       - ./api/app:/app/app
       - ./api/alembic:/app/alembic

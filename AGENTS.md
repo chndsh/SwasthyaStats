@@ -1,134 +1,55 @@
-# AGENTS.md
+## 1. Think Before Coding
 
-## Purpose
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
 
-Build correct, maintainable software with the smallest justified changes.
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
 
-Understand before acting. Investigate before assuming. Verify before declaring success. Document decisions and meaningful actions.
+## 2. Simplicity First
 
-## 1. Mandatory Startup Protocol
+**Minimum code that solves the problem. Nothing speculative.**
 
-Before any task-specific action:
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
 
-1. Read `AGENTS.md`.
-2. Read `progress.md`, if it exists.
-3. Invoke `/superpowers` and follow its installed instructions.
-4. Invoke `/caveman` and follow its installed instructions.
-5. Inspect the project state and existing user changes.
-6. Record the task, initial findings, and plan in `progress.md`.
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
-Both skills are mandatory. Never pretend to invoke an unavailable skill. If either cannot be invoked, stop, explain the limitation, and request authorization before using an alternative.
+## 3. Surgical Changes
 
-Use the environment's actual skill invocation mechanism.
+**Touch only what you must. Clean up only your own mess.**
 
-## 2. Think Before Coding
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
 
-**Don't assume. Don't hide confusion. Surface trade-offs.**
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
 
-- State important assumptions and verify them against the code and available evidence.
-- Distinguish facts from assumptions and hypotheses.
-- If ambiguity could materially change the solution, present the alternatives and ask the user.
-- Prefer simpler approaches and respectfully challenge unnecessarily complex, risky, or unsound requests.
-- If a critical detail is unclear, stop and ask rather than guess.
-- Do not invent requirements or solve unrelated problems.
-- For nontrivial tasks, communicate the objective, assumptions, approach, and relevant trade-offs before implementation.
-- Avoid unnecessary questions about minor details that can be resolved safely.
-- Record significant decisions and trade-offs in `progress.md`.
+The test: Every changed line should trace directly to the user's request.
 
-## 3. Simplicity First
+## 4. Goal-Driven Execution
 
-**Write the minimum code necessary to solve the actual problem.**
+**Define success criteria. Loop until verified.**
 
-- Implement only requested functionality and necessary supporting work.
-- Avoid speculative features, unjustified single-use abstractions, unnecessary configurability, and needless dependencies.
-- Do not add defensive handling for genuinely impossible scenarios; handle realistic failures and required security boundaries.
-- Prefer straightforward, maintainable code over clever or overly generic solutions.
-- Follow existing project conventions unless there is a concrete reason not to.
-- Simplify unnecessarily complicated implementations.
-- Do not optimize for hypothetical future requirements.
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
 
-Ask: *Would a senior engineer consider this unnecessarily complicated?* If so, simplify it.
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
 
-Correctness, security, maintainability, and explicit requirements take precedence over minimizing lines of code.
-
-## 4. Surgical Changes
-
-**Touch only what is necessary. Clean up only your own mess.**
-
-- Change only what is required to satisfy the task.
-- Avoid unrelated refactoring, adjacent improvements, formatting changes, or changes to comments and architecture.
-- Match the existing coding style and preserve behavior unless the task requires otherwise.
-- Preserve user changes. Do not overwrite or remove unrelated work.
-- Avoid unrelated dependency, configuration, and documentation changes.
-- Remove unused artifacts introduced by your changes, but leave pre-existing dead code alone unless removal is necessary or authorized.
-- Report unrelated issues instead of silently expanding the scope.
-- Inspect the final diff and challenge every unrelated change. Revert unjustified changes only when safe and without overwriting user work.
-
-Every change must be justified by the user's request or a necessary consequence of implementing it correctly.
-
-## 5. Goal-Driven Execution
-
-**Define success criteria. Execute, verify, and iterate.**
-
-- Translate the request into concrete, verifiable outcomes.
-- For nontrivial tasks, establish a brief plan before implementation:
-
-  1. **Action:** [What to do] → **Verify:** [Specific check]
-  2. **Action:** [What to do] → **Verify:** [Specific check]
-  3. **Action:** [What to do] → **Verify:** [Specific check]
-
-- Fix bugs by reproducing the failure when practical, defining expected behavior, and verifying the regression is resolved.
-- Refactor with behavior preservation; run relevant tests before and after when practical.
-- Measure performance improvements when suitable measurements are available.
-- Execute each step, inspect the result, compare it with success criteria, investigate failures, and repeat verification until the criteria are met or a genuine blocker remains.
-- If evidence invalidates the plan, revise it and record why in `progress.md`.
-- Do not make speculative changes when evidence is insufficient.
-- Do not confuse completing an action with achieving the goal.
-- If verification is impossible, explain why and identify what remains unverified.
-- Keep planning and verification proportionate to the task.
-
-Record the plan and significant results in `progress.md`.
-
-## 6. Progress Journal
-
-`progress.md` is the persistent project activity journal. Maintain it throughout every task.
-
-Record meaningful actions, changed files, commands, decisions and rationale, debugging findings, verification results, and remaining work.
-
-- Record actual outcomes only; distinguish planned, attempted, completed, verified, failed, and blocked actions.
-- Preserve historical entries. Never fabricate activity or test results.
-- Never record secrets.
-- If the journal cannot be maintained, stop consequential work and explain the limitation.
-
-Follow the journal format defined in `progress.md`.
-
-## 7. Verification
-
-Before declaring a task complete:
-
-- Inspect the actual diff.
-- Run relevant tests and checks when available.
-- Investigate relevant failures.
-- Record actual results in `progress.md`.
-- Identify anything that remains unverified.
-- Confirm unrelated user changes were preserved.
-
-Never claim tests passed unless they actually passed. Never claim completion while required work remains undone.
-
-## 8. Completion
-
-Provide a concise report covering:
-
-- What changed.
-- Important decisions.
-- Verification results.
-- Known limitations or remaining work.
-- Whether `progress.md` was updated.
-
-## 9. Instruction Hierarchy
-
-Follow applicable system instructions, safety requirements, and user authorization boundaries.
-
-Use `AGENTS.md` for durable project rules, `progress.md` for historical records, and installed workflows for repeatable procedures.
-
-Keep these instructions concise. Do not duplicate the project journal here.
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
