@@ -32,6 +32,7 @@ services:
       - ./api/app:/app/app
       - ./api/alembic:/app/alembic
       - ./api/tests:/app/tests
+      - ./eval:/app/eval
       - files:/data/files
       - easyocr:/root/.EasyOCR
       - hf:/root/.cache/huggingface

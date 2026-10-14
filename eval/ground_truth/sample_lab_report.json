@@ -1,0 +1,13 @@
+{
+  "document_name": "sample_lab_report.png",
+  "lab_name": "METROPOLIS CLINICAL LAB",
+  "report_date": "2026-10-14",
+  "numeric_tokens": ["13.5", "12.0", "15.5", "95.0", "70.0", "100.0", "180.0", "125.0", "200.0", "0.9", "0.6", "1.2"],
+  "units": ["g/dL", "mg/dL"],
+  "rows": [
+    "Hemoglobin | 13.5 | g/dL | 12.0 - 15.5",
+    "Fasting Blood Sugar | 95.0 | mg/dL | 70.0 - 100.0",
+    "Total Cholesterol | 180.0 | mg/dL | 125.0 - 200.0",
+    "Serum Creatinine | 0.9 | mg/dL | 0.6 - 1.2"
+  ]
+}
