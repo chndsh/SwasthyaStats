@@ -25,7 +25,7 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:dev@postgres:5432/health
       API_KEY: change-me
       SERVER_SECRET: dev-secret-key-32-chars-long-abc123!
-      DEV_CORS: "false"
+      DEV_CORS: "true"
       STORAGE_PATH: /data/files
       PYTHONPATH: /app
     volumes:

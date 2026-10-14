@@ -27,12 +27,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 def configure_web(app: FastAPI):
     settings = get_settings()
 
-    # CORS configuration
+    # CORS configuration — in dev allow all origins (Flutter dev server port varies)
     if settings.DEV_CORS:
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=["http://localhost:5000", "http://127.0.0.1:5000", "http://localhost:8000"],
-            allow_credentials=True,
+            allow_origins=["*"],
+            allow_credentials=False,  # credentials incompatible with wildcard origin
             allow_methods=["*"],
             allow_headers=["*"],
         )

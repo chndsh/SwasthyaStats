@@ -21,3 +21,10 @@
 | Sample | Numeric Accuracy | Unit Accuracy | Row Accuracy | Target Met |
 |---|---|---|---|---|
 | sample_lab_report.png | 75.0% | 100.0% | 100.0% | No |
+
+
+### OCR Benchmark Run
+
+| Sample | Numeric Accuracy | Unit Accuracy | Row Accuracy | Target Met |
+|---|---|---|---|---|
+| sample_lab_report.png | 75.0% | 100.0% | 100.0% | No |

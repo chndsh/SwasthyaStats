@@ -4,9 +4,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/foundation.dart';
 
+// In production web builds Flutter is served from the same origin as the API,
+// so a relative path works. In development the Flutter dev server runs on a
+// different port (:3000) than the API (:8000), so we need the absolute URL.
 const String kDefaultApiBase = String.fromEnvironment(
   'API_BASE',
-  defaultValue: kIsWeb ? '/api/v1' : 'http://localhost:8000/api/v1',
+  defaultValue: kReleaseMode
+      ? '/api/v1'
+      : 'http://localhost:8000/api/v1',
 );
 
 class ApiClient {
