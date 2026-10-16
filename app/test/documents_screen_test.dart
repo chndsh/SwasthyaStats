@@ -23,6 +23,13 @@ class FakeDocumentsController extends DocumentsController {
         pageCount: 1,
         createdAt: DateTime.now(),
       ),
+      DocumentItem(
+        id: 3,
+        filename: "urine_analysis.pdf",
+        status: "rate_limited",
+        pageCount: 1,
+        createdAt: DateTime.now(),
+      ),
     ];
   }
 }
@@ -43,5 +50,19 @@ void main() {
     expect(find.text('needs_review'), findsOneWidget);
     expect(find.text('lipid_panel.png'), findsOneWidget);
     expect(find.byIcon(Icons.add), findsOneWidget);
+  });
+
+  testWidgets('DocumentsScreen displays rate_limited chip', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          documentsControllerProvider.overrideWith(() => FakeDocumentsController()),
+        ],
+        child: const MaterialApp(home: DocumentsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rate limited (tap to retry)'), findsOneWidget);
   });
 }

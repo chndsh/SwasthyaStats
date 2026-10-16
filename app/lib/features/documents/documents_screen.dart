@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'document_model.dart';
 import 'documents_controller.dart';
+import '../../core/api_client.dart';
 
 class DocumentsScreen extends ConsumerStatefulWidget {
   const DocumentsScreen({super.key});
@@ -257,21 +258,49 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                     '${doc.pageCount} page${doc.pageCount > 1 ? 's' : ''} • ${_formatDate(doc.createdAt)}',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                   ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: statusColor.withOpacity(0.4)),
-                    ),
-                    child: Text(
-                      doc.status,
-                      style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
+                  trailing: InkWell(
+                    onTap: doc.status == 'rate_limited'
+                        ? () async {
+                            try {
+                              final client = ref.read(apiClientProvider);
+                              await client.dio.post('/documents/${doc.id}/retry');
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Retrying extraction...')),
+                                );
+                              }
+                              ref.read(documentsControllerProvider.notifier).refresh();
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Retry failed: $e'), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
+                          }
+                        : null,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: statusColor.withOpacity(0.4)),
+                      ),
+                      child: Text(
+                        doc.status == 'rate_limited' ? 'Rate limited (tap to retry)' : doc.status,
+                        style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
                     ),
                   ),
                   onTap: () {
                     if (doc.status == 'needs_review' || doc.status == 'confirmed') {
                       context.go('/documents/${doc.id}/review');
+                    } else if (doc.status == 'rate_limited') {
+                      // Tap on tile also triggers retry
+                      ref.read(apiClientProvider).dio.post('/documents/${doc.id}/retry').then((_) {
+                        ref.read(documentsControllerProvider.notifier).refresh();
+                      });
                     } else {
                       context.go('/documents/${doc.id}');
                     }
