@@ -10,9 +10,15 @@ from PIL import Image
 from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import Document, DocumentPage, Patient
+import json
+from app.models import Document, DocumentPage, Patient, Extraction, Observation
 from app.pipeline.normalize_pages import process_upload_to_pages, NormalizedPage
 from app.pipeline.ocr.easyocr_engine import EasyOcrEngine
+from app.pipeline.redact import redact_text
+from app.pipeline.extract import extract_page, ExtractionFailed, LabReportRaw
+from app.pipeline.normalize import score_observations, ScoredObservation
+from app.llm.client import OpenAICompatClient
+from app.services.settings import SettingsService
 
 logger = logging.getLogger(__name__)
 
@@ -176,18 +182,186 @@ def process_document_background(doc_id: int, file_payloads: List[Tuple[str, byte
 
         doc.ocr_text = "\n\n".join(page_texts)
         doc.ocr_lines = all_ocr_lines
-        doc.status = "needs_review"
         db.commit()
+
+        # 3. Status: Extraction & Normalization
+        _run_extraction_stage(doc_id, db)
         logger.info(f"Document {doc_id} processing completed successfully")
 
     except Exception as e:
         logger.exception(f"Error during background processing of document {doc_id}: {e}")
         try:
             doc = db.query(Document).filter(Document.id == doc_id).first()
-            if doc:
+            if doc and doc.status != "rate_limited":
                 doc.status = "failed"
                 db.commit()
         except Exception:
             pass
     finally:
         db.close()
+
+
+_lab_dictionary_cache = None
+
+
+def get_lab_dictionary() -> dict:
+    global _lab_dictionary_cache
+    if _lab_dictionary_cache is None:
+        paths = [
+            os.path.join(os.path.dirname(__file__), "..", "data", "lab_dictionary.json"),
+            os.path.join(os.path.dirname(__file__), "data", "lab_dictionary.json"),
+            "/app/app/data/lab_dictionary.json",
+            "/app/data/lab_dictionary.json",
+        ]
+        for p in paths:
+            if os.path.exists(p):
+                try:
+                    with open(p, "r", encoding="utf-8") as f:
+                        _lab_dictionary_cache = json.load(f)
+                        break
+                except Exception as e:
+                    logger.warning(f"Error loading lab dictionary from {p}: {e}")
+        if _lab_dictionary_cache is None:
+            _lab_dictionary_cache = {}
+    return _lab_dictionary_cache
+
+
+def _run_extraction_stage(doc_id: int, db: Session) -> None:
+    """Executes PII redaction, structured LLM extraction per page, grounding check,
+
+    and dictionary normalization. Pauses on rate limits with status='rate_limited'.
+    """
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        return
+
+    doc.status = "extracting"
+    db.commit()
+
+    if not doc.ocr_lines and not doc.ocr_text:
+        doc.status = "needs_review"
+        db.commit()
+        return
+
+    settings_service = SettingsService(db)
+    app_settings = settings_service.get_read_settings()
+    model_name = app_settings.llm_model or "default"
+    prompt_version = "v1"
+
+    client = OpenAICompatClient(db)
+    patient_name = doc.patient.name if doc.patient else None
+    lab_dict = get_lab_dictionary()
+
+    # Clear previous pending observations for this document (e.g. on re-run / retry)
+    db.query(Observation).filter(
+        Observation.document_id == doc_id,
+        Observation.status == "pending",
+    ).delete()
+
+    total_pages = doc.page_count or 1
+    last_report_date = None
+    confidence_map = {}
+
+    for page_no in range(1, total_pages + 1):
+        page_lines = [l for l in doc.ocr_lines if l.get("page") == page_no] if doc.ocr_lines else []
+        if not page_lines and total_pages == 1 and doc.ocr_lines:
+            page_lines = doc.ocr_lines
+
+        page_text = "\n".join([l.get("text", "") for l in page_lines])
+        if not page_text and doc.ocr_text and total_pages == 1:
+            page_text = doc.ocr_text
+
+        redacted = redact_text(page_text, patient_name)
+        line_ids = [l["id"] for l in page_lines if "id" in l]
+
+        input_hash = hashlib.sha256(
+            f"{redacted}:{prompt_version}:{model_name}".encode()
+        ).hexdigest()
+
+        # Cache lookup
+        cached_ext = (
+            db.query(Extraction)
+            .filter(Extraction.document_id == doc_id, Extraction.input_hash == input_hash)
+            .first()
+        )
+
+        if cached_ext and cached_ext.raw_json:
+            try:
+                report = LabReportRaw.model_validate(cached_ext.raw_json)
+            except Exception:
+                report = None
+        else:
+            report = None
+
+        if report is None:
+            try:
+                report = extract_page(
+                    redacted,
+                    line_ids,
+                    client=client,
+                    prompt_version=prompt_version,
+                )
+            except RuntimeError as rerr:
+                logger.warning(f"Extraction rate limited or keys exhausted for doc {doc_id}: {rerr}")
+                doc.status = "rate_limited"
+                db.commit()
+                return
+            except ExtractionFailed as e:
+                logger.error(f"Extraction failed for doc {doc_id}: {e}")
+                doc.status = "failed"
+                db.commit()
+                return
+            except Exception as ex:
+                err_msg = str(ex).lower()
+                if "rate" in err_msg or "exhausted" in err_msg or "429" in err_msg:
+                    doc.status = "rate_limited"
+                    db.commit()
+                    return
+                logger.exception(f"Unexpected extraction error for doc {doc_id}: {ex}")
+                doc.status = "failed"
+                db.commit()
+                return
+
+        if report.report_date:
+            last_report_date = report.report_date
+
+        scored = score_observations(report.observations, page_lines, lab_dict)
+
+        for s in scored:
+            obs_rec = Observation(
+                patient_id=doc.patient_id,
+                document_id=doc.id,
+                test_name=s.obs.test_name,
+                canonical_test_id=s.canonical_test_id,
+                value_num=s.obs.value,
+                value_text=s.obs.value_text,
+                unit=s.normalized_unit,
+                ref_low=s.normalized_ref_low,
+                ref_high=s.normalized_ref_high,
+                flag=s.obs.flag,
+                collected_at=report.report_date or doc.doc_date,
+                page_no=page_no,
+                source_line_ids=s.obs.line_ids,
+                status="pending",
+            )
+            db.add(obs_rec)
+            db.flush()
+            confidence_map[str(obs_rec.id)] = s.confidence
+
+        extraction = Extraction(
+            document_id=doc.id,
+            model=model_name,
+            prompt_version=prompt_version,
+            structured_mode=app_settings.llm_structured_mode,
+            input_hash=input_hash,
+            raw_json=report.model_dump(mode="json"),
+            field_confidence=confidence_map,
+        )
+        db.add(extraction)
+
+    if last_report_date and not doc.doc_date:
+        doc.doc_date = last_report_date
+
+    doc.status = "needs_review"
+    db.commit()
+    logger.info(f"Document {doc_id} extraction completed successfully")
