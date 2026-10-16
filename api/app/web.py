@@ -12,14 +12,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        # Permissive script-src for Wasm and Flutter CanvasKit while restricting other third parties
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
+        # Permissive script-src and worker-src for Wasm, Web Workers, and Flutter CanvasKit
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval'; "
+            "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://www.gstatic.com; "
+            "worker-src 'self' blob:; "
             "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: blob:; "
-            "connect-src 'self' https: http:; "
-            "font-src 'self' data:;"
+            "img-src 'self' data: blob: https:; "
+            "connect-src 'self' https: http: data: blob: https://www.gstatic.com; "
+            "font-src 'self' data: https://fonts.gstatic.com;"
         )
         return response
 
