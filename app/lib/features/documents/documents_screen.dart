@@ -270,7 +270,11 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                     ),
                   ),
                   onTap: () {
-                    context.go('/documents/${doc.id}');
+                    if (doc.status == 'needs_review' || doc.status == 'confirmed') {
+                      context.go('/documents/${doc.id}/review');
+                    } else {
+                      context.go('/documents/${doc.id}');
+                    }
                   },
                 );
               },

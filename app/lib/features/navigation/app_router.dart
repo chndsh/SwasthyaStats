@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../settings/settings_screen.dart';
 import '../documents/documents_screen.dart';
 import '../documents/document_view_screen.dart';
+import '../review/review_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -161,10 +162,22 @@ final appRouter = GoRouter(
                 final id = int.tryParse(state.pathParameters['id'] ?? '1') ?? 1;
                 return DocumentViewScreen(documentId: id);
               },
+              routes: [
+                GoRoute(
+                  path: 'review',
+                  builder: (context, state) {
+                    final id = int.tryParse(state.pathParameters['id'] ?? '1') ?? 1;
+                    return ReviewScreen(documentId: id);
+                  },
+                ),
+              ],
             ),
           ],
         ),
-        GoRoute(path: '/review', builder: (context, state) => const ReviewPlaceholderScreen()),
+        GoRoute(
+          path: '/review',
+          builder: (context, state) => const ReviewPlaceholderScreen(),
+        ),
         GoRoute(path: '/labs', builder: (context, state) => const LabsPlaceholderScreen()),
         GoRoute(path: '/ask', builder: (context, state) => const AskPlaceholderScreen()),
         GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
