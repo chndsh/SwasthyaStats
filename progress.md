@@ -207,3 +207,77 @@ Implement Week 2 deliverables according to `prototype-architecture.md`:
 **Tests:** 18/18 backend passed post-fix
 
 **Week 2 milestone: COMPLETE ✅**
+
+## Task: Week 3 - Extraction, Grounding, Review Screen, and Bake-offs
+
+- **Date:** 2026-10-16
+- **Status:** Completed
+
+### Objective
+Implement Week 3 deliverables according to `prototype-architecture.md`:
+1. PII Redaction stage on CPU before sending OCR lines to external LLM.
+2. Structured LLM extraction with fallback ladder (`strict structured_outputs` -> `json_object` fallback).
+3. Grounding check on numeric values against OCR lines, lab dictionary canonical normalization, and confidence calculation.
+4. Pipeline integration with rate-limit detection (`rate_limited` status pause and resume capability).
+5. Review & Confirm endpoints (`GET /documents/{id}/extractions`, `PATCH /observations/{id}`, `POST /documents/{id}/confirm`, `POST /documents/{id}/retry`).
+6. Flutter Web Review screen with responsive layout (split-pane on wide screens, stacked on mobile), observation editing dialog, and confirm flow.
+7. Usage panel and `rate_limited` status badge with retry trigger in Flutter documents screen.
+8. Extraction evaluation bake-off harness and F1 metrics logging (`eval/run_eval.py`, `eval/RESULTS.md`).
+
+### Decisions Made
+- Defer concurrency semaphore (`llm.concurrency`) to later; process multi-page extraction sequentially per page.
+- Redaction runs purely on CPU with regex anchored to patient name and standard PII patterns before passing text to the LLM.
+- Grounding check validates that numeric strings exist in referenced OCR lines; ungrounded observations receive a heavy confidence penalty (`min(raw_conf * 0.5, 0.45)`) so they are flagged for human review.
+- Observation editing after confirmation is blocked with `409 Conflict` to guarantee audit trail integrity.
+- Review screen is responsive: top-image/bottom-list on mobile, side-by-side on wide screens.
+- API Key authorization logic (`api/app/security/auth.py`) enforces the key when configured, properly rejecting missing or invalid keys.
+- Mounted lab dictionary inside container at `api/app/data/lab_dictionary.json` to ensure clean runtime loading.
+
+### Changes Made
+
+| File | Change | Reason |
+|---|---|---|
+| `api/app/pipeline/redact.py` | CPU regex redaction for patient name and PII | Prevent PHI leakage to external LLM providers |
+| `api/app/pipeline/extract.py` | Pydantic extraction schema, system prompt, and fallback ladder | Structured observation extraction from OCR text |
+| `api/app/pipeline/normalize.py` | Grounding check, dictionary alias lookup, confidence scorer | Link extracted data to OCR evidence & canonical tests |
+| `api/app/services/documents.py` | Integrated extraction into background processing worker with rate-limit pausing | End-to-end document processing pipeline |
+| `api/app/routers/documents.py` | Added extraction inspection, document confirmation, and retry endpoints | Review workflow API endpoints |
+| `api/app/routers/observations.py` | Added observation patch endpoint with 409 conflict check | Allow user corrections before confirmation |
+| `api/app/security/auth.py` | Fixed API key bypass regression when key is configured | Enforce secure access control |
+| `api/data/lab_dictionary.json` & `api/app/data/lab_dictionary.json` | Updated lab test aliases and ranges | Canonical test normalization |
+| `app/lib/features/review/*` | Review screen, controller, models, and responsive widgets | Interactive observation review & confirmation UI |
+| `app/lib/features/navigation/app_router.dart` | Added `/documents/:id/review` route | Route navigation to review screen |
+| `app/lib/features/documents/documents_screen.dart` | Added `rate_limited` chip, retry action, and navigation to review | Document status indicators and retry flow |
+| `eval/run_eval.py`, `eval/RESULTS.md` | Extraction F1 evaluation scoring and bake-off benchmark | Track extraction precision, recall, and F1 |
+| `api/tests/*` | 36 unit and contract tests covering all pipeline and API components | Automated backend test suite |
+| `app/test/*` | 4 widget and controller tests covering review and documents screens | Automated frontend test suite |
+
+### Verification
+
+| Check | Result | Notes |
+|---|---|---|
+| Backend Pytest Suite | Passed | 36/36 tests passed in 11.65s via `docker compose exec -T api pytest -v` |
+| Flutter Test Suite | Passed | 4/4 tests passed via `flutter test` |
+| Flutter Web Wasm Build | Passed | `flutter build web --wasm --release` succeeded in 37.0s |
+| Redaction Unit Tests | Passed | Verified patient name and contact info masking while preserving numeric lab values |
+| Grounding & Normalization Tests | Passed | Verified numeric grounding match and alias-to-canonical normalization |
+| Rate-Limit Handling Tests | Passed | Verified document transitions to `rate_limited` when LLM keys are exhausted |
+| Review Endpoints Contract Tests | Passed | Verified extraction retrieval, observation patch, confirmation, and 409 conflict on confirmed observation edit |
+| Evaluation F1 Harness | Passed | Verified extraction F1 calculation on benchmark fixtures |
+
+### Final Outcome
+
+- **Status:** Completed
+- **Completed:** Week 3 milestone fully implemented, verified, and compiled.
+- **Commit History:**
+  - `c26d184` — `fix(security): enforce X-API-Key validation when configured`
+  - `4c5c2c5` — `feat(pipeline): add PII redaction for OCR text before LLM extraction`
+  - `901afc5` — `feat(pipeline): add LLM extraction schemas, prompt, and fallback ladder`
+  - `f98b370` — `feat(pipeline): add grounding check, dictionary normalization, and confidence scoring`
+  - `c09f368` — `feat(pipeline): integrate extraction stage with rate-limit handling into background worker`
+  - `9e4c413` — `feat(api): add extraction, observation edit, confirm, and retry endpoints`
+  - `b166a7e` — `feat(flutter): add review screen with observation editing and confirm flow`
+  - `b1e79ad` — `feat(flutter): show rate_limited chip with retry, wire usage panel in settings`
+  - `b355dab` — `eval: add extraction F1 scoring and log Week 3 bake-off results`
+
+**Week 3 milestone: COMPLETE ✅**
