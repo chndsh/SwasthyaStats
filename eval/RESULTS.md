@@ -51,3 +51,10 @@
 - **Dynamic Model Discovery:** Models populated from `{base_url}/models` via `GET /api/v1/settings/models`. Tested and verified with presets for Groq, OpenRouter, Together, Mistral, Ollama, and OpenAI.
 - **Structured Output Fallback Ladder:** Models supporting `json_schema` use strict schema output; on failure or for models supporting only JSON mode, the client steps down to `json_object` mode with code-fence stripping.
 
+
+
+### OCR Benchmark Run
+
+| Sample | Numeric Accuracy | Unit Accuracy | Row Accuracy | Target Met |
+|---|---|---|---|---|
+| sample_lab_report.png | 75.0% | 100.0% | 100.0% | No |
