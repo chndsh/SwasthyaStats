@@ -85,15 +85,18 @@ class SettingsController extends StateNotifier<SettingsState> {
     }
   }
 
-  Future<void> updateSettings(Map<String, dynamic> updatePayload) async {
-    state = state.copyWith(settings: const AsyncValue.loading());
+  Future<bool> updateSettings(Map<String, dynamic> updatePayload) async {
     try {
       final res = await _apiClient.dio.put('/settings', data: updatePayload);
       final updated = AppSettings.fromJson(res.data);
       state = state.copyWith(settings: AsyncValue.data(updated));
       await loadModels();
+      return true;
     } catch (e, st) {
-      state = state.copyWith(settings: AsyncValue.error(e, st));
+      if (!state.settings.hasValue) {
+        state = state.copyWith(settings: AsyncValue.error(e, st));
+      }
+      return false;
     }
   }
 

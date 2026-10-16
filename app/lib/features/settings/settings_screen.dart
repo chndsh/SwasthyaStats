@@ -77,19 +77,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       body: state.settings.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 12),
-              Text('Failed to load settings: $err'),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () => notifier.loadAll(),
-                child: const Text('Retry'),
+        error: (err, _) => SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_person, size: 56, color: Colors.amber),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Failed to connect to backend: $err',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                  const SizedBox(height: 12),
+                  const Card(
+                    color: Color(0xFFFFFBEB),
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text(
+                        '💡 If you received 401 Unauthorized: The Backend Server Key (X-API-Key) does not match the server configuration.\n\n'
+                        'For local Docker development, the default is "change-me".\n\n'
+                        'If you accidentally entered your Groq or OpenAI key into the server key field, tap the button below to reset it to "change-me" and reconnect. (Groq keys belong in the LLM Key Pool section, not the Server Key field).',
+                        style: TextStyle(color: Color(0xFF92400E), fontSize: 13),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.restore),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D9488),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    ),
+                    onPressed: () {
+                      _apiKeyCtrl.text = 'change-me';
+                      apiClient.setApiKey('change-me');
+                      notifier.loadAll();
+                    },
+                    label: const Text('Reset Server Key to "change-me" & Retry'),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildBackendSection(apiClient, notifier),
+                ],
               ),
-            ],
+            ),
           ),
         ),
         data: (settings) {
@@ -103,7 +138,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildBackendSection(apiClient),
+                    _buildBackendSection(apiClient, notifier),
                     const SizedBox(height: 24),
                     _buildProviderSection(notifier, state.models),
                     const SizedBox(height: 24),
@@ -123,23 +158,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildBackendSection(ApiClient apiClient) {
+  Widget _buildBackendSection(ApiClient apiClient, [SettingsController? notifier]) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Backend Connection', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                const Icon(Icons.security, size: 20, color: Color(0xFF0D9488)),
+                const SizedBox(width: 8),
+                const Text('Backend Server Authentication', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Security key to authenticate HTTP requests with your local SwasthyaStats backend server (X-API-Key header). '
+              'Default for Docker is "change-me". '
+              'Do NOT enter your Groq or OpenAI key here (enter those in the LLM Key Pool below).',
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+            ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _apiKeyCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Backend API Key (X-API-Key)',
-                prefixIcon: Icon(Icons.key),
-              ),
-              onChanged: (val) => apiClient.setApiKey(val),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _apiKeyCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Server Key (default: change-me)',
+                      prefixIcon: Icon(Icons.key),
+                      helperText: 'For local setup, keep this as "change-me"',
+                    ),
+                    onChanged: (val) => apiClient.setApiKey(val),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.restart_alt, size: 16),
+                  onPressed: () {
+                    _apiKeyCtrl.text = 'change-me';
+                    apiClient.setApiKey('change-me');
+                    if (notifier != null) notifier.loadAll();
+                  },
+                  label: const Text('Reset'),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Row(
@@ -226,17 +291,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ElevatedButton.icon(
               icon: const Icon(Icons.save),
               label: const Text('Save Provider Settings'),
-              onPressed: () {
-                notifier.updateSettings({
+              onPressed: () async {
+                final ok = await notifier.updateSettings({
                   'llm_provider': _provider,
                   'llm_base_url': _baseUrlCtrl.text,
                   'llm_model': _modelCtrl.text,
                   'privacy_redact_pii': _redactPii,
                   'llm_key_strategy': _strategy,
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Settings saved successfully')),
-                );
+                if (mounted) {
+                  if (ok) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Provider settings saved successfully'), backgroundColor: Colors.green),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to save settings. Please verify Server Key is "change-me".'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
               },
             ),
           ],
@@ -257,7 +330,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Text('API Key Pool & Rotation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Text('LLM Provider Key Pool & Rotation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 DropdownButton<String>(
                   value: _strategy,
                   items: const [
@@ -272,7 +345,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 12),
             if (settings.llmApiKeys.isEmpty)
-              const Text('No API keys configured yet. Add your provider key below.',
+              const Text('No LLM API keys configured yet. Add your Groq, Cerebras, or OpenAI key below.',
                   style: TextStyle(color: Colors.grey))
             else
               ...settings.llmApiKeys.map((k) {
@@ -293,7 +366,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: TextField(
                     controller: _newKeyCtrl,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Secret API Key'),
+                    decoration: const InputDecoration(
+                      labelText: 'LLM API Key (e.g. gsk_...)',
+                      hintText: 'Paste Groq or OpenAI key',
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -306,15 +382,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: () {
-                    if (_newKeyCtrl.text.trim().isNotEmpty) {
-                      notifier.updateSettings({
+                  onPressed: () async {
+                    final keyText = _newKeyCtrl.text.trim();
+                    if (keyText.isNotEmpty) {
+                      final labelText = _newKeyLabelCtrl.text.trim().isEmpty ? 'key' : _newKeyLabelCtrl.text.trim();
+                      final ok = await notifier.updateSettings({
                         'llm_api_keys': [
-                          {'key': _newKeyCtrl.text.trim(), 'label': _newKeyLabelCtrl.text.trim().isEmpty ? 'key' : _newKeyLabelCtrl.text.trim()}
+                          {'key': keyText, 'label': labelText}
                         ],
                       });
-                      _newKeyCtrl.clear();
-                      _newKeyLabelCtrl.clear();
+                      if (mounted) {
+                        if (ok) {
+                          _newKeyCtrl.clear();
+                          _newKeyLabelCtrl.clear();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('LLM Key added to pool successfully!'), backgroundColor: Colors.green),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Failed to add key. Please check your Server Access Key.'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
                     }
                   },
                   child: const Text('Add Key'),
