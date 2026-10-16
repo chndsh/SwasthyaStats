@@ -17,3 +17,22 @@ def test_eval_metrics_calculation():
     assert metrics["numeric_accuracy"] == 1.0
     assert metrics["unit_accuracy"] == 1.0
     assert metrics["row_accuracy"] == 1.0
+
+
+def test_extraction_f1_calculation():
+    from eval.run_eval import score_extraction
+
+    ground_truth = {
+        "rows": [
+            "Hemoglobin | 13.5 | g/dL | 12.0 - 15.5",
+            "Fasting Blood Sugar | 95.0 | mg/dL | 70.0 - 100.0",
+        ]
+    }
+    predicted = [
+        {"test_name": "Hemoglobin", "value_num": 13.5, "unit": "g/dL"},
+        {"test_name": "Fasting Blood Sugar", "value_num": 95.0, "unit": "mg/dL"},
+    ]
+    res = score_extraction(predicted, ground_truth["rows"])
+    assert res["precision"] == 1.0
+    assert res["recall"] == 1.0
+    assert res["f1"] == 1.0
