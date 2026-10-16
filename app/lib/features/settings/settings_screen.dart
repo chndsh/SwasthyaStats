@@ -169,7 +169,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const Text('LLM Provider & Model Selection', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _presets.containsKey(_provider) ? _provider : 'custom',
+              initialValue: _presets.containsKey(_provider) ? _provider : 'custom',
               decoration: const InputDecoration(labelText: 'Provider Preset'),
               items: _presets.keys.map((p) {
                 return DropdownMenuItem(value: p, child: Text(p.toUpperCase()));
@@ -196,7 +196,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 14),
             if (models.isNotEmpty) ...[
               DropdownButtonFormField<String>(
-                value: models.contains(_modelCtrl.text) ? _modelCtrl.text : null,
+                initialValue: models.contains(_modelCtrl.text) ? _modelCtrl.text : null,
                 decoration: const InputDecoration(labelText: 'Discovered Models'),
                 items: models.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
                 onChanged: (m) {

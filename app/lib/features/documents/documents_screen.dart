@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'document_model.dart';
 import 'documents_controller.dart';
 import '../../core/api_client.dart';
 
@@ -242,7 +241,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               itemCount: docs.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final doc = docs[index];
                 final statusColor = _getStatusColor(doc.status);
@@ -250,7 +249,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                   leading: CircleAvatar(
-                    backgroundColor: statusColor.withOpacity(0.12),
+                    backgroundColor: statusColor.withValues(alpha: 0.12),
                     child: Icon(Icons.description, color: statusColor),
                   ),
                   title: Text(doc.filename, style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -283,9 +282,9 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.12),
+                        color: statusColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: statusColor.withOpacity(0.4)),
+                        border: Border.all(color: statusColor.withValues(alpha: 0.4)),
                       ),
                       child: Text(
                         doc.status == 'rate_limited' ? 'Rate limited (tap to retry)' : doc.status,

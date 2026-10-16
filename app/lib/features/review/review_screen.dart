@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import 'observation_model.dart';
 import 'review_controller.dart';
@@ -110,7 +109,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: selectedFlag,
+                  initialValue: selectedFlag,
                   decoration: const InputDecoration(labelText: 'Flag'),
                   items: const [
                     DropdownMenuItem(value: null, child: Text('None / Normal')),
@@ -320,7 +319,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               ),
             ),
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
         ],
       ),
@@ -405,7 +404,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                                               .notifier,
                                         )
                                         .confirmAll();
-                                    if (ok && mounted) {
+                                    if (ok && context.mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
                                           content: Text('All observations confirmed!'),

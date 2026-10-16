@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/api_client.dart';
 import 'package:app/features/review/observation_model.dart';
@@ -91,17 +90,13 @@ class ReviewController extends FamilyAsyncNotifier<ReviewState, int> {
 
   Future<void> updateObservation(int obsId, Map<String, dynamic> patch) async {
     final client = ref.read(apiClientProvider);
-    try {
-      final response = await client.dio.patch('/observations/$obsId', data: patch);
-      final updated = ObservationModel.fromJson(response.data as Map<String, dynamic>);
+    final response = await client.dio.patch('/observations/$obsId', data: patch);
+    final updated = ObservationModel.fromJson(response.data as Map<String, dynamic>);
 
-      state = state.whenData((s) {
-        final newObs = s.observations.map((o) => o.id == obsId ? updated : o).toList();
-        return s.copyWith(observations: newObs);
-      });
-    } on DioException catch (e) {
-      rethrow;
-    }
+    state = state.whenData((s) {
+      final newObs = s.observations.map((o) => o.id == obsId ? updated : o).toList();
+      return s.copyWith(observations: newObs);
+    });
   }
 
   Future<bool> confirmAll() async {
@@ -111,7 +106,7 @@ class ReviewController extends FamilyAsyncNotifier<ReviewState, int> {
 
     state = state.whenData((s) => s.copyWith(isConfirming: true));
     try {
-      final response = await client.dio.post('/documents/${current.documentId}/confirm');
+      await client.dio.post('/documents/${current.documentId}/confirm');
       state = state.whenData((s) => s.copyWith(
             status: 'confirmed',
             isConfirming: false,
