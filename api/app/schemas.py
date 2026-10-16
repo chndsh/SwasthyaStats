@@ -131,3 +131,42 @@ class DocumentUploadResponse(BaseModel):
     status: str
     page_count: int
 
+
+# --- Review & Observation schemas ---
+
+class ObservationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    test_name: str
+    canonical_test_id: Optional[str] = None
+    value_num: Optional[float] = None
+    value_text: Optional[str] = None
+    unit: Optional[str] = None
+    ref_low: Optional[float] = None
+    ref_high: Optional[float] = None
+    flag: Optional[str] = None
+    collected_at: Optional[date] = None
+    page_no: int
+    source_line_ids: Optional[List[int]] = None
+    status: str
+    confidence: Optional[float] = None
+
+
+class ObservationPatch(BaseModel):
+    test_name: Optional[str] = None
+    value_num: Optional[float] = None
+    value_text: Optional[str] = None
+    unit: Optional[str] = None
+    ref_low: Optional[float] = None
+    ref_high: Optional[float] = None
+    flag: Optional[str] = None
+    collected_at: Optional[date] = None
+
+
+class ExtractionRead(BaseModel):
+    document_id: int
+    status: str
+    observations: List[ObservationRead]
+    ocr_lines: List[Dict[str, Any]] = []
+
