@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import date
 from typing import List, Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from app.llm.client import OpenAICompatClient, LlmResponse
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ def extract_page(
             raw_text = _clean_json_markdown(resp.content)
             data = json.loads(raw_text)
             return LabReportRaw.model_validate(data)
-        except (json.JSONDecodeError, ValueError) as err:
+        except (json.JSONDecodeError, ValidationError) as err:
             last_error = err
             logger.warning(f"Extraction attempt {attempt + 1} parse error: {err}")
 
@@ -102,5 +102,5 @@ def extract_page(
         raw_text = _clean_json_markdown(resp.content)
         data = json.loads(raw_text)
         return LabReportRaw.model_validate(data)
-    except (json.JSONDecodeError, ValueError) as err:
+    except (json.JSONDecodeError, ValidationError) as err:
         raise ExtractionFailed(f"Could not parse extraction response after retries: {err}") from err

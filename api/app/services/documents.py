@@ -301,7 +301,7 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
                     client=client,
                     prompt_version=prompt_version,
                 )
-            except RuntimeError as rerr:
+            except (RuntimeError, ValueError) as rerr:
                 logger.warning(f"Extraction rate limited or keys exhausted for doc {doc_id}: {rerr}")
                 doc.status = "rate_limited"
                 db.commit()
