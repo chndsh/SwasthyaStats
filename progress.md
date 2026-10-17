@@ -387,3 +387,21 @@ Implement Week 4 deliverables according to `prototype-architecture.md`:
   - `b78dc7d` — `fix(flutter): resolve analyzer warnings for super parameters and opacity`
 
 **Week 4 milestone: COMPLETE ✅**
+
+## Task: Canonical Lab Test Aliasing & Chart Grouping Fix
+
+- **Date:** 2026-10-17
+- **Status:** Completed
+
+### Problem
+- In `/api/v1/tests`, tests were grouped strictly by raw OCR string (`test_name`). Real reports extracted as `Hemoglobin (HB)` while synthetic test suite fixtures inserted raw `Hemoglobin` with `collected_at = None`.
+- Users saw two separate entries (`Hemoglobin` with no dates, and `Hemoglobin (HB)` with actual dates). Tapping `Hemoglobin` yielded "No readings available".
+
+### Solution
+- Updated `list_available_tests` and `get_lab_chart` in `api/app/routers/charts.py` to alias-resolve against `lab_dictionary.json` via `_find_canonical_test_id`.
+- Both `Hemoglobin` and `Hemoglobin (HB)` now merge under canonical key `hemoglobin` with title `Hemoglobin`.
+- Historical points across both entries now render chronologically on the same trend line chart.
+
+### Verification
+- `GET /api/v1/charts/lab?test=Hemoglobin` returns 2 points (`2026-07-23` at 14.2 gm/dl, `2026-09-10` at 13.8 gm/dl) with ref band `13.0–17.0`.
+- 6/6 tests passed in `test_charts_api.py`.
