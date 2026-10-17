@@ -170,3 +170,34 @@ class ExtractionRead(BaseModel):
     observations: List[ObservationRead]
     ocr_lines: List[Dict[str, Any]] = []
 
+
+# --- Charts & Lab trends schemas (Week 4) ---
+
+class LabTestSummary(BaseModel):
+    test_name: str
+    canonical_test_id: Optional[str] = None
+    count: int
+    latest_value: Optional[float] = None
+    latest_unit: Optional[str] = None
+    latest_flag: Optional[str] = None
+    latest_date: Optional[date] = None
+    ref_low: Optional[float] = None
+    ref_high: Optional[float] = None
+
+
+class ChartPoint(BaseModel):
+    date: date
+    value: float
+    flag: Optional[str] = None
+    document_id: int
+    page_no: int = 1
+
+
+class LabChartResponse(BaseModel):
+    test_name: str
+    points: List[ChartPoint] = []
+    ref_low: Optional[float] = None
+    ref_high: Optional[float] = None
+    unit: Optional[str] = None
+
+
