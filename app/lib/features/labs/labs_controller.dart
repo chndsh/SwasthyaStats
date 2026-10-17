@@ -38,7 +38,7 @@ final labsControllerProvider =
 );
 
 class LabFavouritesNotifier extends StateNotifier<Set<String>> {
-  LabFavouritesNotifier(Set<String> initial) : super(initial) {
+  LabFavouritesNotifier(super.initial) {
     _loadFromPrefs();
   }
 

@@ -175,7 +175,7 @@ class LabDetailScreen extends ConsumerWidget {
                                     ? Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: _getFlagColor(p.flag).withOpacity(0.15),
+                                          color: _getFlagColor(p.flag).withValues(alpha: 0.15),
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
@@ -249,7 +249,7 @@ class LabDetailScreen extends ConsumerWidget {
                     width: 12,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.3),
+                      color: Colors.green.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(3),
                       border: Border.all(color: Colors.green),
                     ),
@@ -277,7 +277,7 @@ class LabDetailScreen extends ConsumerWidget {
                             HorizontalRangeAnnotation(
                               y1: data.refLow!,
                               y2: data.refHigh!,
-                              color: Colors.green.withOpacity(0.12),
+                              color: Colors.green.withValues(alpha: 0.12),
                             ),
                           ]
                         : [],

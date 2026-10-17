@@ -176,7 +176,7 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: filteredTests.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (context, idx) {
                       final test = filteredTests[idx];
                       final isFav = favourites.contains(test.testName);
@@ -275,7 +275,7 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _getFlagColor(test.latestFlag).withOpacity(0.15),
+                      color: _getFlagColor(test.latestFlag).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(

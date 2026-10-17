@@ -16,7 +16,7 @@ class FakeLabsController extends LabsController {
 }
 
 class FakeFavouritesNotifier extends LabFavouritesNotifier {
-  FakeFavouritesNotifier(Set<String> initial) : super(initial);
+  FakeFavouritesNotifier(super.initial);
 
   @override
   Future<void> toggle(String testName) async {
