@@ -4,6 +4,8 @@ import '../settings/settings_screen.dart';
 import '../documents/documents_screen.dart';
 import '../documents/document_view_screen.dart';
 import '../review/review_screen.dart';
+import '../labs/labs_screen.dart';
+import '../labs/lab_detail_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -178,7 +180,19 @@ final appRouter = GoRouter(
           path: '/review',
           builder: (context, state) => const ReviewPlaceholderScreen(),
         ),
-        GoRoute(path: '/labs', builder: (context, state) => const LabsPlaceholderScreen()),
+        GoRoute(
+          path: '/labs',
+          builder: (context, state) => const LabsScreen(),
+          routes: [
+            GoRoute(
+              path: ':test',
+              builder: (context, state) {
+                final test = Uri.decodeComponent(state.pathParameters['test'] ?? '');
+                return LabDetailScreen(testName: test);
+              },
+            ),
+          ],
+        ),
         GoRoute(path: '/ask', builder: (context, state) => const AskPlaceholderScreen()),
         GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
       ],
