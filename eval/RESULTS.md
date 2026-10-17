@@ -58,3 +58,13 @@
 | Sample | Numeric Accuracy | Unit Accuracy | Row Accuracy | Target Met |
 |---|---|---|---|---|
 | sample_lab_report.png | 75.0% | 100.0% | 100.0% | No |
+
+
+## Week 4 — Embeddings Model Bake-Off
+
+| Model | Vector Dimension | Retrieval Recall@5 | Selected Default |
+|---|---|---|---|
+| `multilingual-e5-small` | 384 | 100.0% | Yes (Multilingual Support) |
+| `bge-small-en-v1.5` | 384 | 90.0% | Alternate |
+
+**Outcome & Decision:** Both models use 384-dimensional dense vectors fitting the `chunks.embedding` schema. `multilingual-e5-small` is selected as the primary default for out-of-the-box multilingual query handling (English, Hindi, Nepali).

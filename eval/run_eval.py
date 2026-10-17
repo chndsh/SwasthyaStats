@@ -237,9 +237,83 @@ def run_benchmark(samples_dir: str = "eval/samples", ground_truth_dir: str = "ev
                 rf.write(f"| {fname} | {em['precision']*100:.1f}% | {em['recall']*100:.1f}% | {em['f1']*100:.1f}% | {f1_met} |\n")
 
 
+def embed_bakeoff(top_k: int = 5) -> Dict[str, float]:
+    """Bake-off comparing multilingual-e5-small vs bge-small-en-v1.5 on retrieval Recall@k."""
+    from app.pipeline.embed import EmbedEngine
+
+    test_corpus = [
+        "HbA1c 6.8 % on 2026-06-15 (ref 4.0–5.6)",
+        "Fasting Blood Sugar 112 mg/dL on 2026-06-15 (ref 70–99)",
+        "Total Cholesterol 215 mg/dL on 2026-06-15 (ref 125–200)",
+        "HDL Cholesterol 42 mg/dL on 2026-06-15 (ref 40–60)",
+        "LDL Cholesterol 145 mg/dL on 2026-06-15 (ref < 100)",
+        "Serum Creatinine 0.9 mg/dL on 2026-05-10 (ref 0.6–1.2)",
+        "Hemoglobin 13.5 g/dL on 2026-05-10 (ref 12.0–15.5)",
+        "Platelet Count 240000 /uL on 2026-05-10 (ref 150000–450000)",
+        "Patient advised low sodium diet and regular aerobic exercise 30 minutes daily.",
+        "Metformin 500mg once daily with evening meal prescribed for blood glucose control.",
+    ]
+
+    eval_qa = [
+        {"query": "What is my glycated hemoglobin level?", "target": "HbA1c"},
+        {"query": "How is my fasting blood sugar?", "target": "Fasting Blood Sugar"},
+        {"query": "Is my cholesterol high?", "target": "Total Cholesterol"},
+        {"query": "What is my good HDL cholesterol reading?", "target": "HDL Cholesterol"},
+        {"query": "What is my bad LDL cholesterol reading?", "target": "LDL Cholesterol"},
+        {"query": "Check my kidney function and creatinine levels", "target": "Serum Creatinine"},
+        {"query": "What was my red blood cell hemoglobin count?", "target": "Hemoglobin"},
+        {"query": "What was my platelet count?", "target": "Platelet Count"},
+        {"query": "What lifestyle or diet advice was given?", "target": "low sodium diet"},
+        {"query": "What medication was prescribed for diabetes management?", "target": "Metformin"},
+    ]
+
+    models_to_test = ["multilingual-e5-small", "bge-small-en-v1.5"]
+    recalls = {}
+
+    print("\n==================================================")
+    print("Running Embedding Model Bake-off (Recall@5)")
+    print("==================================================")
+
+    for m_name in models_to_test:
+        print(f"\nEvaluating model: {m_name}...")
+        engine = EmbedEngine(model_name=m_name)
+        corpus_vecs = np.array(engine.embed(test_corpus))
+
+        correct = 0
+        for qa in eval_qa:
+            q_vec = np.array(engine.embed([qa["query"]])[0])
+            sims = np.dot(corpus_vecs, q_vec)
+            top_indices = np.argsort(sims)[::-1][:top_k]
+            retrieved = [test_corpus[idx] for idx in top_indices]
+
+            if any(qa["target"].lower() in doc.lower() for doc in retrieved):
+                correct += 1
+
+        recall = correct / len(eval_qa)
+        recalls[m_name] = round(recall, 4)
+        print(f"  {m_name} Recall@{top_k}: {recall*100:.1f}% ({correct}/{len(eval_qa)})")
+
+    # Append results to RESULTS.md
+    with open("eval/RESULTS.md", "a") as rf:
+        rf.write(f"\n\n## Week 4 — Embeddings Model Bake-Off\n\n")
+        rf.write(f"| Model | Vector Dimension | Retrieval Recall@5 | Selected Default |\n")
+        rf.write(f"|---|---|---|---|\n")
+        rf.write(f"| `multilingual-e5-small` | 384 | {recalls.get('multilingual-e5-small', 0)*100:.1f}% | Yes (Multilingual Support) |\n")
+        rf.write(f"| `bge-small-en-v1.5` | 384 | {recalls.get('bge-small-en-v1.5', 0)*100:.1f}% | Alternate |\n")
+        rf.write(f"\n**Outcome & Decision:** Both models use 384-dimensional dense vectors fitting the `chunks.embedding` schema. `multilingual-e5-small` is selected as the primary default for out-of-the-box multilingual query handling (English, Hindi, Nepali).\n")
+
+    return recalls
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate EasyOCR and extraction on sample documents.")
+    parser = argparse.ArgumentParser(description="Evaluate EasyOCR, extraction, and embeddings on sample documents.")
     parser.add_argument("--samples", default="eval/samples", help="Path to sample images")
     parser.add_argument("--ground-truth", default="eval/ground_truth", help="Path to ground truth JSONs")
+    parser.add_argument("--mode", default="all", choices=["all", "ocr", "embed-bakeoff"], help="Evaluation mode to run")
     args = parser.parse_args()
-    run_benchmark(args.samples, args.ground_truth)
+
+    if args.mode in ("all", "ocr"):
+        run_benchmark(args.samples, args.ground_truth)
+    if args.mode in ("all", "embed-bakeoff"):
+        embed_bakeoff(top_k=5)
+
