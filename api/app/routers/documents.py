@@ -158,7 +158,7 @@ def retry_document_extraction(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    if doc.status not in ("rate_limited", "failed"):
+    if doc.status not in ("rate_limited", "failed", "extracting"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot retry document in status '{doc.status}'",

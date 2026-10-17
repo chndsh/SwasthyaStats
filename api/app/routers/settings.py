@@ -60,7 +60,8 @@ def test_llm_connection_endpoint(db: Session = Depends(get_db)):
 
 @router.get("/usage", response_model=UsageStats)
 def get_usage_stats(db: Session = Depends(get_db)):
-    today_start = datetime.now().strftime("%Y-%m-%d 00:00:00")
+    from datetime import timezone
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     total_tokens = (
         db.query(func.coalesce(func.sum(LlmCall.prompt_tokens + LlmCall.completion_tokens), 0))
         .filter(LlmCall.created_at >= today_start)

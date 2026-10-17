@@ -47,6 +47,32 @@ def _clean_json_markdown(text: str) -> str:
     return cleaned.strip()
 
 
+def to_strict_json_schema(schema: dict) -> dict:
+    """Ensures all object schemas have additionalProperties: false and required properties,
+
+    satisfying OpenAI and Groq strict structured output requirements.
+    """
+    def _recurse(node):
+        if not isinstance(node, dict):
+            return
+        if node.get("type") == "object" or "properties" in node:
+            node["additionalProperties"] = False
+            props = node.get("properties", {})
+            if props:
+                node["required"] = list(props.keys())
+        for v in node.values():
+            if isinstance(v, dict):
+                _recurse(v)
+            elif isinstance(v, list):
+                for item in v:
+                    if isinstance(item, dict):
+                        _recurse(item)
+
+    copied = json.loads(json.dumps(schema))
+    _recurse(copied)
+    return copied
+
+
 def extract_page(
     redacted_text: str,
     ocr_line_ids: List[int],
@@ -66,7 +92,7 @@ def extract_page(
         },
     ]
 
-    schema = LabReportRaw.model_json_schema()
+    schema = to_strict_json_schema(LabReportRaw.model_json_schema())
 
     # Attempt 1: Default structured extraction
     last_error: Optional[Exception] = None

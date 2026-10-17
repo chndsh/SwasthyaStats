@@ -281,3 +281,44 @@ Implement Week 3 deliverables according to `prototype-architecture.md`:
   - `b355dab` — `eval: add extraction F1 scoring and log Week 3 bake-off results`
 
 **Week 3 milestone: COMPLETE ✅**
+
+## Task: Pipeline Reliability & Stuck Extraction Diagnostics
+
+- **Date:** 2026-10-17
+- **Status:** Completed
+
+### Objective
+Diagnose and resolve background pipeline issues causing documents to hang at `extracting` status in the Flutter Web UI and ensure resilient rate-limit handling and caching.
+
+### Root Causes Identified
+1. **PostgreSQL Type Mismatch in Daily Token Queries:**
+   - In `api/app/llm/client.py` and `api/app/routers/settings.py`, `LlmCall.created_at >= time.strftime(...)` passed a `str` instead of a timezone-aware `datetime`, causing Postgres psycopg to throw `operator does not exist: timestamp with time zone >= character varying`.
+2. **Aborted Transaction Propagation (`InFailedSqlTransaction`):**
+   - When an exception occurred during extraction, handlers executed `doc.status = "failed"` and `db.commit()` without preceding `db.rollback()`. In psycopg, an aborted transaction rejects further queries, crashing the handler and leaving the document stuck in `extracting` forever.
+3. **Groq Strict Schema Rejection:**
+   - Groq structured outputs rejected `LabReportRaw` with HTTP 400 because nested models in `$defs` lacked `additionalProperties: false` or complete `required` arrays.
+4. **Error Detail Swallowing in `KeyPool`:**
+   - When an API key encountered a 429 or auth failure, subsequent attempts failed with a generic `ValueError("All configured API keys are currently exhausted, rate-limited, or invalid.")`, masking the underlying provider error.
+5. **Multi-page Atomic Rollback Token Loss:**
+   - Multi-page documents committed extractions only after all pages completed. A rate limit on page 2 or 3 discarded page 1's observations, requiring full re-extraction on retry.
+6. **Frontend Polling Gap:**
+   - `documents_controller.dart` polled on `queued`, `normalizing`, and `ocr`, but omitted `extracting`.
+
+### Decisions & Solutions
+- **Postgres Timestamptz:** Switched `LlmCall.created_at` filters to `datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)`.
+- **Transaction Rollback Guard:** Added explicit `db.rollback()` before updating document status in all error handlers across `services/documents.py`.
+- **Strict Schema Transformer:** Added `to_strict_json_schema()` in `extract.py` to recursively enforce `additionalProperties: false` and populate `required` lists.
+- **Provider Fallback Ladder:** Added automatic fallback from `json_schema` to `json_object` when a provider returns HTTP 400 on strict schemas, with full error message reporting in `KeyPool`.
+- **Per-Page Persistence & Caching:** Extraction results and observations are committed after each page completes. On retry, previously extracted pages are loaded directly from `extractions` cache, eliminating redundant LLM calls.
+- **Frontend Polling & Actions:** Added `extracting` to polling loop, added status color for `extracting`, and enabled "Retry" action for `rate_limited` documents.
+- **Startup Crash Recovery:** Marked orphaned in-flight documents (`extracting`, `normalizing`, `ocr`) as `failed` on server startup so users can retry them.
+
+### Verification
+| Check | Result | Notes |
+|---|---|---|
+| Backend Pytest Suite | Passed | 36/36 passed via `docker compose exec -T api pytest -v` |
+| Flutter Analyzer | Passed | 0 issues found via `flutter analyze` |
+| Flutter Test Suite | Passed | 4/4 passed via `flutter test` |
+| Flutter Web Wasm Build | Passed | `flutter build web --wasm` compiled successfully |
+| Live Provider Extraction | Passed | Verified live Groq API extraction with strict schema (15 observations on Page 1) |
+

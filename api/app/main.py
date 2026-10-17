@@ -6,7 +6,7 @@ from app.routers import documents as documents_router
 from app.routers import observations as observations_router
 from app.web import configure_web
 from app.db import engine, Base
-from app.models import Patient
+from app.models import Patient, Document
 from sqlalchemy.orm import Session
 from sqlalchemy import text as sa_text
 
@@ -27,7 +27,11 @@ async def lifespan(app: FastAPI):
         default_patient = session.query(Patient).first()
         if not default_patient:
             session.add(Patient(id=1, name="Primary Patient"))
-            session.commit()
+        # Reset any orphaned documents interrupted during previous server shutdown
+        session.query(Document).filter(
+            Document.status.in_(["extracting", "normalizing", "ocr"])
+        ).update({"status": "failed"}, synchronize_session=False)
+        session.commit()
     yield
 
 

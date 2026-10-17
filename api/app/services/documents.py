@@ -191,6 +191,7 @@ def process_document_background(doc_id: int, file_payloads: List[Tuple[str, byte
     except Exception as e:
         logger.exception(f"Error during background processing of document {doc_id}: {e}")
         try:
+            db.rollback()
             doc = db.query(Document).filter(Document.id == doc_id).first()
             if doc and doc.status != "rate_limited":
                 doc.status = "failed"
@@ -303,23 +304,31 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
                 )
             except (RuntimeError, ValueError) as rerr:
                 logger.warning(f"Extraction rate limited or keys exhausted for doc {doc_id}: {rerr}")
-                doc.status = "rate_limited"
-                db.commit()
+                db.rollback()
+                doc = db.query(Document).filter(Document.id == doc_id).first()
+                if doc:
+                    doc.status = "rate_limited"
+                    db.commit()
                 return
             except ExtractionFailed as e:
                 logger.error(f"Extraction failed for doc {doc_id}: {e}")
-                doc.status = "failed"
-                db.commit()
+                db.rollback()
+                doc = db.query(Document).filter(Document.id == doc_id).first()
+                if doc:
+                    doc.status = "failed"
+                    db.commit()
                 return
             except Exception as ex:
                 err_msg = str(ex).lower()
-                if "rate" in err_msg or "exhausted" in err_msg or "429" in err_msg:
-                    doc.status = "rate_limited"
+                db.rollback()
+                doc = db.query(Document).filter(Document.id == doc_id).first()
+                if doc:
+                    if "rate" in err_msg or "exhausted" in err_msg or "429" in err_msg:
+                        doc.status = "rate_limited"
+                    else:
+                        logger.exception(f"Unexpected extraction error for doc {doc_id}: {ex}")
+                        doc.status = "failed"
                     db.commit()
-                    return
-                logger.exception(f"Unexpected extraction error for doc {doc_id}: {ex}")
-                doc.status = "failed"
-                db.commit()
                 return
 
         if report.report_date:
@@ -348,16 +357,18 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
             db.flush()
             confidence_map[str(obs_rec.id)] = s.confidence
 
-        extraction = Extraction(
-            document_id=doc.id,
-            model=model_name,
-            prompt_version=prompt_version,
-            structured_mode=app_settings.llm_structured_mode,
-            input_hash=input_hash,
-            raw_json=report.model_dump(mode="json"),
-            field_confidence=confidence_map,
-        )
-        db.add(extraction)
+        if not cached_ext:
+            extraction = Extraction(
+                document_id=doc.id,
+                model=model_name,
+                prompt_version=prompt_version,
+                structured_mode=app_settings.llm_structured_mode,
+                input_hash=input_hash,
+                raw_json=report.model_dump(mode="json"),
+                field_confidence=confidence_map,
+            )
+            db.add(extraction)
+        db.commit()
 
     if last_report_date and not doc.doc_date:
         doc.doc_date = last_report_date

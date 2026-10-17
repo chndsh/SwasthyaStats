@@ -28,6 +28,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       case 'ocr':
       case 'normalizing':
       case 'queued':
+      case 'extracting':
         return Colors.blue;
       case 'rate_limited':
         return Colors.amber.shade800;
@@ -258,7 +259,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                   ),
                   trailing: InkWell(
-                    onTap: doc.status == 'rate_limited'
+                    onTap: (doc.status == 'rate_limited' || doc.status == 'failed')
                         ? () async {
                             try {
                               final client = ref.read(apiClientProvider);
@@ -287,7 +288,11 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                         border: Border.all(color: statusColor.withValues(alpha: 0.4)),
                       ),
                       child: Text(
-                        doc.status == 'rate_limited' ? 'Rate limited (tap to retry)' : doc.status,
+                        doc.status == 'rate_limited'
+                            ? 'Rate limited (tap to retry)'
+                            : doc.status == 'failed'
+                                ? 'Failed (tap to retry)'
+                                : doc.status,
                         style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ),
@@ -295,7 +300,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                   onTap: () {
                     if (doc.status == 'needs_review' || doc.status == 'confirmed') {
                       context.go('/documents/${doc.id}/review');
-                    } else if (doc.status == 'rate_limited') {
+                    } else if (doc.status == 'rate_limited' || doc.status == 'failed') {
                       // Tap on tile also triggers retry
                       ref.read(apiClientProvider).dio.post('/documents/${doc.id}/retry').then((_) {
                         ref.read(documentsControllerProvider.notifier).refresh();

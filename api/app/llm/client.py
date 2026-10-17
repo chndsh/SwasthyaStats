@@ -1,6 +1,7 @@
 import re
 import json
 import time
+import logging
 import httpx
 from typing import List, Dict, Any, Optional, Literal
 from sqlalchemy.orm import Session
@@ -8,6 +9,9 @@ from sqlalchemy import func
 from app.models import LlmCall
 from app.services.settings import SettingsService
 from app.llm.keypool import KeyPool, KeyState
+
+logger = logging.getLogger(__name__)
+
 
 
 def strip_think_tags(text: str) -> str:
@@ -44,7 +48,8 @@ class OpenAICompatClient:
         self.settings_service = SettingsService(db)
 
     def _get_daily_token_usage(self) -> int:
-        today_start = time.strftime("%Y-%m-%d 00:00:00")
+        from datetime import datetime, timezone
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         total = (
             self.db.query(func.coalesce(func.sum(LlmCall.prompt_tokens + LlmCall.completion_tokens), 0))
             .filter(LlmCall.created_at >= today_start)
@@ -128,7 +133,8 @@ class OpenAICompatClient:
         for attempt in range(max_attempts):
             key_state = key_pool.get_key()
             if not key_state:
-                raise ValueError("All configured API keys are currently exhausted, rate-limited, or invalid.")
+                err_detail = f": {last_error}" if last_error else ""
+                raise ValueError(f"All configured API keys are currently exhausted, rate-limited, or invalid{err_detail}")
 
             req_headers = dict(headers)
             req_headers["Authorization"] = f"Bearer {key_state.key}"
@@ -182,6 +188,11 @@ class OpenAICompatClient:
                         key_label=key_state.label,
                     )
 
+                elif resp.status_code == 400 and json_schema and payload.get("response_format", {}).get("type") == "json_schema":
+                    logger.warning(f"Provider rejected json_schema with HTTP 400: {resp.text}. Falling back to json_object.")
+                    payload["response_format"] = {"type": "json_object"}
+                    continue
+
                 elif resp.status_code in (401, 403):
                     key_pool.mark_bad_auth(key_state.key)
                     last_error = f"Authentication failed on key ({key_state.label}): {resp.text}"
@@ -190,10 +201,13 @@ class OpenAICompatClient:
                 elif resp.status_code == 429:
                     retry_after = 60.0
                     header_val = resp.headers.get("retry-after")
-                    if header_val and header_val.isdigit():
-                        retry_after = float(header_val)
+                    if header_val:
+                        try:
+                            retry_after = float(header_val)
+                        except ValueError:
+                            pass
                     key_pool.mark_rate_limited(key_state.key, retry_after)
-                    last_error = f"Rate limited on key ({key_state.label}). Waiting {retry_after}s."
+                    last_error = f"Rate limited on key ({key_state.label}). Waiting {retry_after}s: {resp.text}"
                     continue
 
                 else:

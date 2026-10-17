@@ -28,7 +28,10 @@ class DocumentsController extends AsyncNotifier<List<DocumentItem>> {
   void _checkPolling(List<DocumentItem> docs) {
     _pollingTimer?.cancel();
     final hasProcessing = docs.any((d) =>
-        d.status == 'queued' || d.status == 'normalizing' || d.status == 'ocr');
+        d.status == 'queued' ||
+        d.status == 'normalizing' ||
+        d.status == 'ocr' ||
+        d.status == 'extracting');
 
     if (hasProcessing) {
       _pollingTimer = Timer(const Duration(seconds: 3), () async {
