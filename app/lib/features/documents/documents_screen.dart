@@ -16,6 +16,8 @@ class DocumentsScreen extends ConsumerStatefulWidget {
 
 class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   bool _isUploading = false;
+  bool _isSelectMode = false;
+  final Set<int> _selected = {};
 
   Color _getStatusColor(String status) {
     switch (status) {
@@ -34,6 +36,70 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
         return Colors.amber.shade800;
       default:
         return Colors.grey;
+    }
+  }
+
+  void _enterSelectMode(int id) {
+    setState(() {
+      _isSelectMode = true;
+      _selected.add(id);
+    });
+  }
+
+  void _exitSelectMode() {
+    setState(() {
+      _isSelectMode = false;
+      _selected.clear();
+    });
+  }
+
+  void _toggleSelection(int id) {
+    setState(() {
+      if (_selected.contains(id)) {
+        _selected.remove(id);
+        if (_selected.isEmpty) _isSelectMode = false;
+      } else {
+        _selected.add(id);
+      }
+    });
+  }
+
+  Future<void> _confirmAndDelete(Set<int> ids) async {
+    final count = ids.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete $count document${count > 1 ? 's' : ''}?'),
+        content: Text(
+          'This will permanently remove $count document${count > 1 ? 's' : ''} and all extracted data. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref.read(documentsControllerProvider.notifier).deleteDocuments(ids);
+      if (mounted) {
+        _exitSelectMode();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$count document${count > 1 ? 's' : ''} deleted.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Delete failed: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -57,7 +123,6 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
       if (!context.mounted) break;
 
-      // Ask if user wants to add another page
       final bool? addMore = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -96,12 +161,9 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       final List<MultipartFile> filesToUpload = [];
       for (final file in result.files) {
         if (file.bytes != null) {
-          filesToUpload.add(
-            MultipartFile.fromBytes(file.bytes!, filename: file.name),
-          );
+          filesToUpload.add(MultipartFile.fromBytes(file.bytes!, filename: file.name));
         }
       }
-
       if (filesToUpload.isNotEmpty && context.mounted) {
         await _upload(filesToUpload);
       }
@@ -177,23 +239,40 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     final docsAsync = ref.watch(documentsControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Documents'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
-            onPressed: () => ref.read(documentsControllerProvider.notifier).refresh(),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _isUploading ? null : () => _showAddDocumentSheet(context),
-        backgroundColor: const Color(0xFF0D9488),
-        child: _isUploading
-            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-            : const Icon(Icons.add, color: Colors.white),
-      ),
+      appBar: _isSelectMode
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _exitSelectMode,
+              ),
+              title: Text('${_selected.length} selected'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  tooltip: 'Delete selected',
+                  onPressed: _selected.isEmpty ? null : () => _confirmAndDelete(Set.from(_selected)),
+                ),
+              ],
+            )
+          : AppBar(
+              title: const Text('Documents'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Refresh',
+                  onPressed: () => ref.read(documentsControllerProvider.notifier).refresh(),
+                ),
+              ],
+            ),
+      floatingActionButton: _isSelectMode
+          ? null
+          : FloatingActionButton(
+              onPressed: _isUploading ? null : () => _showAddDocumentSheet(context),
+              backgroundColor: const Color(0xFF0D9488),
+              child: _isUploading
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.add, color: Colors.white),
+            ),
       body: docsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
@@ -246,69 +325,95 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
               itemBuilder: (context, index) {
                 final doc = docs[index];
                 final statusColor = _getStatusColor(doc.status);
+                final isSelected = _selected.contains(doc.id);
 
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                  leading: CircleAvatar(
-                    backgroundColor: statusColor.withValues(alpha: 0.12),
-                    child: Icon(Icons.description, color: statusColor),
-                  ),
+                  leading: _isSelectMode
+                      ? Checkbox(
+                          value: isSelected,
+                          onChanged: (_) => _toggleSelection(doc.id),
+                        )
+                      : CircleAvatar(
+                          backgroundColor: statusColor.withValues(alpha: 0.12),
+                          child: Icon(Icons.description, color: statusColor),
+                        ),
                   title: Text(doc.filename, style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(
                     '${doc.pageCount} page${doc.pageCount > 1 ? 's' : ''} • ${_formatDate(doc.createdAt)}',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                   ),
-                  trailing: InkWell(
-                    onTap: (doc.status == 'rate_limited' || doc.status == 'failed')
-                        ? () async {
-                            try {
-                              final client = ref.read(apiClientProvider);
-                              await client.dio.post('/documents/${doc.id}/retry');
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Retrying extraction...')),
-                                );
-                              }
-                              ref.read(documentsControllerProvider.notifier).refresh();
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Retry failed: $e'), backgroundColor: Colors.red),
-                                );
-                              }
-                            }
-                          }
-                        : null,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: statusColor.withValues(alpha: 0.4)),
-                      ),
-                      child: Text(
-                        doc.status == 'rate_limited'
-                            ? 'Rate limited (tap to retry)'
-                            : doc.status == 'failed'
-                                ? 'Failed (tap to retry)'
-                                : doc.status,
-                        style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                    ),
+                  selected: isSelected,
+                  selectedTileColor: Colors.red.withValues(alpha: 0.06),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Status chip (tap to retry if applicable)
+                      if (!_isSelectMode)
+                        InkWell(
+                          onTap: (doc.status == 'rate_limited' || doc.status == 'failed')
+                              ? () async {
+                                  try {
+                                    final client = ref.read(apiClientProvider);
+                                    await client.dio.post('/documents/${doc.id}/retry');
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Retrying extraction...')),
+                                      );
+                                    }
+                                    ref.read(documentsControllerProvider.notifier).refresh();
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Retry failed: $e'), backgroundColor: Colors.red),
+                                      );
+                                    }
+                                  }
+                                }
+                              : null,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              doc.status == 'rate_limited'
+                                  ? 'Rate limited (tap to retry)'
+                                  : doc.status == 'failed'
+                                      ? 'Failed (tap to retry)'
+                                      : doc.status,
+                              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      // Always-visible delete icon
+                      if (!_isSelectMode) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          tooltip: 'Delete',
+                          onPressed: () => _confirmAndDelete({doc.id}),
+                        ),
+                      ],
+                    ],
                   ),
-                  onTap: () {
-                    if (doc.status == 'needs_review' || doc.status == 'confirmed') {
-                      context.go('/documents/${doc.id}/review');
-                    } else if (doc.status == 'rate_limited' || doc.status == 'failed') {
-                      // Tap on tile also triggers retry
-                      ref.read(apiClientProvider).dio.post('/documents/${doc.id}/retry').then((_) {
-                        ref.read(documentsControllerProvider.notifier).refresh();
-                      });
-                    } else {
-                      context.go('/documents/${doc.id}');
-                    }
-                  },
+                  onLongPress: _isSelectMode ? null : () => _enterSelectMode(doc.id),
+                  onTap: _isSelectMode
+                      ? () => _toggleSelection(doc.id)
+                      : () {
+                          if (doc.status == 'needs_review' || doc.status == 'confirmed') {
+                            context.go('/documents/${doc.id}/review');
+                          } else if (doc.status == 'rate_limited' || doc.status == 'failed') {
+                            ref.read(apiClientProvider).dio.post('/documents/${doc.id}/retry').then((_) {
+                              ref.read(documentsControllerProvider.notifier).refresh();
+                            });
+                          } else {
+                            context.go('/documents/${doc.id}');
+                          }
+                        },
                 );
               },
             ),

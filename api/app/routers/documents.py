@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 from app.db import get_db
 from app.security.auth import verify_api_key
-from app.models import Document, DocumentPage, Extraction, Observation
+import shutil
+from app.models import Document, DocumentPage, Extraction, Observation, Chunk
 from app.schemas import DocumentRead, DocumentUploadResponse, ExtractionRead, ObservationRead
 from app.services.documents import validate_and_create_document, process_document_background
 
@@ -186,3 +187,38 @@ def retry_document_extraction(
 
     background_tasks.add_task(_retry_worker, doc.id)
     return {"id": doc.id, "status": doc.status}
+
+
+@router.delete(
+    "/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(verify_api_key)],
+)
+def delete_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+):
+    """Deletes a document and all associated records and files."""
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    # Delete child records in dependency order
+    page_ids = [p.id for p in db.query(DocumentPage).filter(DocumentPage.document_id == document_id).all()]
+    if page_ids:
+        db.query(Chunk).filter(Chunk.document_id == document_id).delete(synchronize_session=False)
+        extraction_ids = [
+            e.id for e in db.query(Extraction).filter(Extraction.page_id.in_(page_ids)).all()
+        ]
+        if extraction_ids:
+            db.query(Observation).filter(Observation.extraction_id.in_(extraction_ids)).delete(synchronize_session=False)
+        db.query(Extraction).filter(Extraction.page_id.in_(page_ids)).delete(synchronize_session=False)
+    db.query(DocumentPage).filter(DocumentPage.document_id == document_id).delete(synchronize_session=False)
+    db.delete(doc)
+    db.commit()
+
+    # Remove files from disk
+    from app.config import get_settings
+    doc_dir = os.path.join(get_settings().STORAGE_PATH, "documents", str(document_id))
+    if os.path.isdir(doc_dir):
+        shutil.rmtree(doc_dir, ignore_errors=True)

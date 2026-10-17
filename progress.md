@@ -405,3 +405,26 @@ Implement Week 4 deliverables according to `prototype-architecture.md`:
 ### Verification
 - `GET /api/v1/charts/lab?test=Hemoglobin` returns 2 points (`2026-07-23` at 14.2 gm/dl, `2026-09-10` at 13.8 gm/dl) with ref band `13.0–17.0`.
 - 6/6 tests passed in `test_charts_api.py`.
+
+## Task: Remove Review Tab from Navigation
+
+- **Date:** 2026-10-17
+- **Status:** Completed
+
+### Changes Made
+| File | Change |
+|---|---|
+| `app/lib/features/navigation/app_router.dart` | Removed Review tab from BottomNavigationBar and NavigationRail; renumbered indexes for remaining tabs (Documents, Labs, Ask, Settings) |
+| `architecture.md` | Removed Review tab from navigation and UI component listings |
+| `prototype-architecture.md` | Removed Review tab from navigation and responsive layout table |
+
+### Verification
+| Check | Result |
+|---|---|
+| Flutter Analyze | ✅ 0 issues |
+| Flutter Tests | ✅ 8/8 passed |
+| Backend Pytest | ✅ 48/48 passed |
+| WASM rebuild | ✅ Built successfully (37.6s) |
+| Visual confirmation | ✅ Review tab no longer visible in browser |
+
+**Note:** Source change alone isn't enough for WASM builds — must rebuild (`flutter build web --wasm`) and hard-refresh the browser.

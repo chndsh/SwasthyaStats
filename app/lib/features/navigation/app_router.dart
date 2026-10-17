@@ -18,10 +18,9 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
 
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
-    if (location.startsWith('/review')) return 1;
-    if (location.startsWith('/labs')) return 2;
-    if (location.startsWith('/ask')) return 3;
-    if (location.startsWith('/settings')) return 4;
+    if (location.startsWith('/labs')) return 1;
+    if (location.startsWith('/ask')) return 2;
+    if (location.startsWith('/settings')) return 3;
     return 0; // /documents default
   }
 
@@ -31,15 +30,12 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
         context.go('/documents');
         break;
       case 1:
-        context.go('/review');
-        break;
-      case 2:
         context.go('/labs');
         break;
-      case 3:
+      case 2:
         context.go('/ask');
         break;
-      case 4:
+      case 3:
         context.go('/settings');
         break;
     }
@@ -62,7 +58,6 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
           onDestinationSelected: (idx) => _onItemTapped(idx, context),
           destinations: const [
             NavigationDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description), label: 'Documents'),
-            NavigationDestination(icon: Icon(Icons.rate_review_outlined), selectedIcon: Icon(Icons.rate_review), label: 'Review'),
             NavigationDestination(icon: Icon(Icons.show_chart_outlined), selectedIcon: Icon(Icons.show_chart), label: 'Labs'),
             NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: 'Ask'),
             NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
@@ -91,7 +86,6 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
               ),
               destinations: const [
                 NavigationRailDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description), label: Text('Documents')),
-                NavigationRailDestination(icon: Icon(Icons.rate_review_outlined), selectedIcon: Icon(Icons.rate_review), label: Text('Review')),
                 NavigationRailDestination(icon: Icon(Icons.show_chart_outlined), selectedIcon: Icon(Icons.show_chart), label: Text('Labs')),
                 NavigationRailDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: Text('Ask (RAG)')),
                 NavigationRailDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: Text('Settings')),
@@ -106,19 +100,7 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
   }
 }
 
-// Placeholder screens for features built in Weeks 3-5
-class ReviewPlaceholderScreen extends StatelessWidget {
-  const ReviewPlaceholderScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Review & Confirm')),
-      body: const Center(
-        child: Text('Review & Confirm table (Week 3 target)', textAlign: TextAlign.center),
-      ),
-    );
-  }
-}
+// Placeholder screens for features built in Week 5
 
 class LabsPlaceholderScreen extends StatelessWidget {
   const LabsPlaceholderScreen({super.key});
@@ -175,10 +157,6 @@ final appRouter = GoRouter(
               ],
             ),
           ],
-        ),
-        GoRoute(
-          path: '/review',
-          builder: (context, state) => const ReviewPlaceholderScreen(),
         ),
         GoRoute(
           path: '/labs',

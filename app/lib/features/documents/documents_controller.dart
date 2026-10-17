@@ -71,6 +71,12 @@ class DocumentsController extends AsyncNotifier<List<DocumentItem>> {
 
     await refresh();
   }
+
+  Future<void> deleteDocuments(Set<int> ids) async {
+    final client = ref.read(apiClientProvider);
+    await Future.wait(ids.map((id) => client.dio.delete('/documents/$id')));
+    await refresh();
+  }
 }
 
 final documentsControllerProvider =
