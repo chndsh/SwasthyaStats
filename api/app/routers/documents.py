@@ -127,7 +127,11 @@ def get_document_extraction(document_id: int, db: Session = Depends(get_db)):
     "/{document_id}/confirm",
     dependencies=[Depends(verify_api_key)],
 )
-def confirm_document(document_id: int, db: Session = Depends(get_db)):
+def confirm_document(
+    document_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     """Confirms all pending observations for a document and marks document as confirmed."""
     doc = db.query(Document).filter(Document.id == document_id).first()
     if not doc:
@@ -140,6 +144,9 @@ def confirm_document(document_id: int, db: Session = Depends(get_db)):
     )
     doc.status = "confirmed"
     db.commit()
+
+    from app.pipeline.embed_worker import embed_document
+    background_tasks.add_task(embed_document, doc.id)
 
     return {"confirmed": updated, "document_id": doc.id, "status": doc.status}
 
