@@ -322,3 +322,68 @@ Diagnose and resolve background pipeline issues causing documents to hang at `ex
 | Flutter Web Wasm Build | Passed | `flutter build web --wasm` compiled successfully |
 | Live Provider Extraction | Passed | Verified live Groq API extraction with strict schema (15 observations on Page 1) |
 
+
+## Task: Week 4 - Charts, Embeddings, Labs Screen, and Bake-offs
+
+- **Date:** 2026-10-17
+- **Status:** Completed
+
+### Objective
+Implement Week 4 deliverables according to `prototype-architecture.md`:
+1. Local embedding engine (`EmbedEngine`) with SentenceTransformers supporting `multilingual-e5-small` and `bge-small-en-v1.5` mapped to 384-dimensional dense vectors.
+2. Background embed worker (`embed_worker.py`) enqueued asynchronously on document confirmation, generating observation summary chunks and OCR page chunks.
+3. Chart and test listing REST endpoints (`GET /api/v1/tests`, `GET /api/v1/charts/lab?test=<name>&from=&to=`).
+4. Flutter Labs screen with search, customisable favorite trends section (defaults: HbA1c, Fasting Glucose, Hemoglobin, Total Cholesterol) persisted in `shared_preferences`, and all confirmed tests list.
+5. Flutter Lab Detail screen with interactive `fl_chart` LineChart, shaded normal reference band, touch tooltips, time-range chips (3M / 6M / 1Y / ALL), and chronological record history table with direct links to source documents.
+6. Embedding model bake-off evaluating Recall@5 on retrieval benchmarks (`eval/run_eval.py`, `eval/RESULTS.md`).
+
+### Decisions Made
+- **Asynchronous Embedding on Confirmation:** Document confirmation immediately updates status to `confirmed` and schedules the embedding worker as a FastAPI background task, ensuring responsive HTTP responses without blocking on model inference or download.
+- **Model Aliases & Dimension Compatibility:** Mapped friendly names (`multilingual-e5-small` -> `intfloat/multilingual-e5-small`, `bge-small-en-v1.5` -> `BAAI/bge-small-en-v1.5`). Both produce 384-dimensional vectors conforming strictly to `chunks.embedding Vector(384)`.
+- **Default & Persisted Favorites:** If the user has not toggled favorites, standard metabolic/hematology tests default to top cards. Toggling stars stores the set immediately in browser `shared_preferences`.
+- **Null-Date Exclusion & Chronological Sorting:** Chart points with missing collection dates are excluded from the line chart series while all confirmed readings display chronologically.
+
+### Changes Made
+
+| File | Change | Reason |
+|---|---|---|
+| `api/app/pipeline/embed.py` | `EmbedEngine`, alias resolution, `observation_summary`, and singleton getter | Local vector embedding pipeline |
+| `api/app/pipeline/embed_worker.py` | Background task embedding confirmed observations and OCR text into `chunks` | Asynchronous vector creation on confirm |
+| `api/app/routers/documents.py` | Added `BackgroundTasks` to `confirm_document` enqueuing `embed_document` | Trigger embedding post-confirmation |
+| `api/app/routers/charts.py` | Implemented `/tests` and `/charts/lab` endpoints | Feed lab test summaries and time-series data to UI |
+| `api/app/schemas.py` | Added `LabTestSummary`, `ChartPoint`, `LabChartResponse` | Pydantic V2 response contracts |
+| `api/app/main.py` | Mounted `charts.router` | Expose charts API routes |
+| `app/lib/features/labs/lab_model.dart` | `LabTestSummary` model | Parse test listing and summary stats |
+| `app/lib/features/labs/labs_controller.dart` | `labsControllerProvider` and `labFavouritesProvider` with SharedPreferences | State management for lab test list and favorites |
+| `app/lib/features/labs/labs_screen.dart` | Search bar, favorite cards wrap, and full recorded test tiles | Labs overview UI |
+| `app/lib/features/labs/lab_chart_controller.dart` | `ChartPoint`, `LabChartData`, time-range filter, `labChartProvider` | Lab trend time-series state |
+| `app/lib/features/labs/lab_detail_screen.dart` | `fl_chart` LineChart with reference band, tooltips, and history table | Interactive lab detail view |
+| `app/lib/features/navigation/app_router.dart` | Wired `/labs` and `/labs/:test` routes | Route navigation to labs screens |
+| `eval/run_eval.py`, `eval/RESULTS.md` | Added `embed_bakeoff` mode and logged Recall@5 results | Embedding model bake-off |
+| `api/tests/*` | `test_embed.py`, `test_embed_worker.py`, `test_charts_api.py` | Automated backend test coverage |
+| `app/test/*` | `labs_screen_test.dart`, `lab_detail_screen_test.dart` | Automated frontend widget tests |
+
+### Verification
+
+| Check | Result | Notes |
+|---|---|---|
+| Backend Pytest Suite | Passed | 48/48 passed in 52.0s via `docker compose exec -T api pytest -v` |
+| Flutter Analyzer | Passed | 0 issues found via `flutter analyze` |
+| Flutter Test Suite | Passed | 8/8 passed via `flutter test` |
+| Flutter Web Wasm Build | Passed | `flutter build web --wasm --release` succeeded in 38.2s |
+| Embedding Bake-Off | Passed | `multilingual-e5-small`: 100.0% Recall@5; `bge-small-en-v1.5`: 90.0% Recall@5 |
+
+### Final Outcome
+
+- **Status:** Completed
+- **Completed:** Week 4 milestone fully implemented, verified, and compiled.
+- **Commit History:**
+  - `4c4b7ac` — `feat(pipeline): add embed engine and observation summary formatter`
+  - `49c161b` — `feat(pipeline): embed confirmed observations as chunks in background after confirm`
+  - `f7f852f` — `feat(api): add /tests and /charts/lab endpoints for lab trend charting`
+  - `ce005f9` — `feat(flutter): add Labs screen with favourites, test list, and navigation`
+  - `bcd09ce` — `feat(flutter): add Lab Detail screen with fl_chart trend line, reference band, and history table`
+  - `2aab442` — `eval: add embedding model bake-off and log Week 4 Recall@5 results`
+  - `b78dc7d` — `fix(flutter): resolve analyzer warnings for super parameters and opacity`
+
+**Week 4 milestone: COMPLETE ✅**
