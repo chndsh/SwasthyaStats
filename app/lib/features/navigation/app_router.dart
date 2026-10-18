@@ -6,6 +6,9 @@ import '../documents/document_view_screen.dart';
 import '../review/review_screen.dart';
 import '../labs/labs_screen.dart';
 import '../labs/lab_detail_screen.dart';
+import '../ask/ask_screen.dart';
+
+
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -171,8 +174,9 @@ final appRouter = GoRouter(
             ),
           ],
         ),
-        GoRoute(path: '/ask', builder: (context, state) => const AskPlaceholderScreen()),
+        GoRoute(path: '/ask', builder: (context, state) => const AskScreen()),
         GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+
       ],
     ),
   ],
