@@ -49,6 +49,9 @@ app.include_router(documents_router.router)
 app.include_router(observations_router.router)
 from app.routers import charts as charts_router
 app.include_router(charts_router.router)
+from app.routers import ask as ask_router
+app.include_router(ask_router.router)
+
 
 
 
