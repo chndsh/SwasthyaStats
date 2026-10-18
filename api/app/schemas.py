@@ -201,3 +201,17 @@ class LabChartResponse(BaseModel):
     unit: Optional[str] = None
 
 
+# --- Ask / RAG schemas (Week 5) ---
+
+class CitationRef(BaseModel):
+    type: Literal["obs", "doc"]
+    id: int
+    page: Optional[int] = None
+
+
+class AskResponse(BaseModel):
+    answer: str
+    citations: List[CitationRef] = []
+
+
+
