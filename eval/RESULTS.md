@@ -68,3 +68,29 @@
 | `bge-small-en-v1.5` | 384 | 90.0% | Alternate |
 
 **Outcome & Decision:** Both models use 384-dimensional dense vectors fitting the `chunks.embedding` schema. `multilingual-e5-small` is selected as the primary default for out-of-the-box multilingual query handling (English, Hindi, Nepali).
+
+## Week 5 — PWA Section 7.8 Checklist Pass & Lighthouse Audit
+
+### 1. Lighthouse Audit
+- **Report generated:** `eval/lighthouse-week5.json`
+- **Target URL:** `http://localhost:8000/`
+- **Scores:**
+  - Accessibility: **100 / 100**
+  - SEO: **100 / 100**
+  - Best Practices: **81 / 100**
+  - Performance: **56 / 100** (Flutter Wasm compilation download size and font loading on headless Chrome)
+
+### 2. Section 7.8 Checklist Verification
+
+| Requirement | Pass Condition | Result | Notes |
+|---|---|---|---|
+| **Installable** | Standalone manifest, valid icons | Passed | `manifest.json` configured with standalone mode, 192px/512px standard and maskable icons |
+| **Standalone** | Launches without browser chrome | Passed | `display: "standalone"`, `theme_color: "#0D9488"`, background `#0D9488` |
+| **PWA Install Hint** | In-app hint to Add to Home Screen | Passed | Dismissible MaterialBanner, dismissed state persisted in `shared_preferences` |
+| **Offline State** | Shell loads, data screens show offline | Passed | Connectivity-aware banner in DocumentsScreen and AskScreen |
+| **Update Flow** | New build triggers reload | Passed | `controllerchange` listener registered in `web/index.html` |
+| **Responsive (360px)** | Usable at 360 px width | Passed | Verified responsive layout: BottomNavigationBar (<600px), NavigationRail (600-1024px), Expanded Rail (>1024px) |
+| **Accessibility** | 100 on Lighthouse, labels present | Passed | Accessibility score 100/100; keyboard tab order verified |
+| **Security Headers** | CSP & clickjacking protection | Passed | `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` |
+| **iOS Smoke Test** | iOS meta tags & icons | Passed | Apple mobile web app tags and touch icons configured in `index.html` |
+
