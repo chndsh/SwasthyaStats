@@ -1,0 +1,58 @@
+[
+  {
+    "id": 1,
+    "question": "What is my latest HbA1c level?",
+    "type": "observation",
+    "expected_answer_keywords": ["hba1c", "7.1", "6.8"],
+    "is_answerable": true
+  },
+  {
+    "id": 2,
+    "question": "What was my fasting blood glucose value?",
+    "type": "observation",
+    "expected_answer_keywords": ["glucose", "95"],
+    "is_answerable": true
+  },
+  {
+    "id": 3,
+    "question": "What was my hemoglobin on my lab report?",
+    "type": "observation",
+    "expected_answer_keywords": ["hemoglobin", "14.2", "13.8"],
+    "is_answerable": true
+  },
+  {
+    "id": 4,
+    "question": "What dose of Metformin was prescribed?",
+    "type": "document_text",
+    "expected_answer_keywords": ["metformin", "500"],
+    "is_answerable": true
+  },
+  {
+    "id": 5,
+    "question": "What was my COVID-19 antibody titer?",
+    "type": "unanswerable",
+    "expected_answer_keywords": ["couldn't find", "not found"],
+    "is_answerable": false
+  },
+  {
+    "id": 6,
+    "question": "What was my bone density T-score?",
+    "type": "unanswerable",
+    "expected_answer_keywords": ["couldn't find", "not found"],
+    "is_answerable": false
+  },
+  {
+    "id": 7,
+    "question": "What was my PSA level?",
+    "type": "unanswerable",
+    "expected_answer_keywords": ["couldn't find", "not found"],
+    "is_answerable": false
+  },
+  {
+    "id": 8,
+    "question": "What were my liver enzymes ALT and AST?",
+    "type": "unanswerable",
+    "expected_answer_keywords": ["couldn't find", "not found"],
+    "is_answerable": false
+  }
+]

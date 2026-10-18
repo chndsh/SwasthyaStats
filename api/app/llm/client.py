@@ -199,7 +199,7 @@ class OpenAICompatClient:
                     continue
 
                 elif resp.status_code == 429:
-                    retry_after = 60.0
+                    retry_after = 5.0
                     header_val = resp.headers.get("retry-after")
                     if header_val:
                         try:
@@ -208,7 +208,11 @@ class OpenAICompatClient:
                             pass
                     key_pool.mark_rate_limited(key_state.key, retry_after)
                     last_error = f"Rate limited on key ({key_state.label}). Waiting {retry_after}s: {resp.text}"
+                    if len(keys) == 1 and attempt < max_attempts - 1:
+                        logger.info(f"Single key rate limited; sleeping {retry_after}s before retry.")
+                        time.sleep(retry_after)
                     continue
+
 
                 else:
                     last_error = f"HTTP {resp.status_code} from provider: {resp.text}"
