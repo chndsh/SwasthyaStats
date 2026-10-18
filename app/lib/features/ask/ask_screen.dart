@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'ask_controller.dart';
 import 'ask_model.dart';
+import '../../core/connectivity.dart';
+
 
 class AskScreen extends ConsumerStatefulWidget {
   const AskScreen({super.key});
@@ -55,8 +57,38 @@ class _AskScreenState extends ConsumerState<AskScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isOffline = ref.watch(isOfflineProvider);
     final messagesAsync = ref.watch(askControllerProvider);
     final messages = messagesAsync.value ?? [];
+
+    if (isOffline) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Ask Health Records')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.wifi_off, size: 48, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  "You're offline",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Connect to the internet to query health records.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
 
     return Scaffold(
       appBar: AppBar(

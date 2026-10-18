@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'documents_controller.dart';
 import '../../core/api_client.dart';
+import '../../core/connectivity.dart';
+
 
 class DocumentsScreen extends ConsumerStatefulWidget {
   const DocumentsScreen({super.key});
@@ -236,7 +238,44 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isOffline = ref.watch(isOfflineProvider);
+
+    if (isOffline) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Documents')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.wifi_off, size: 48, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  "You're offline",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Connect to the internet to load and sync documents.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => ref.read(documentsControllerProvider.notifier).refresh(),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final docsAsync = ref.watch(documentsControllerProvider);
+
+
 
     return Scaffold(
       appBar: _isSelectMode

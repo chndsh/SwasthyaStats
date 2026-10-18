@@ -7,6 +7,8 @@ import '../review/review_screen.dart';
 import '../labs/labs_screen.dart';
 import '../labs/lab_detail_screen.dart';
 import '../ask/ask_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 
 
@@ -20,12 +22,15 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
   const ScaffoldWithResponsiveNav({super.key, required this.child});
 
   int _calculateSelectedIndex(BuildContext context) {
-    final location = GoRouterState.of(context).uri.toString();
-    if (location.startsWith('/labs')) return 1;
-    if (location.startsWith('/ask')) return 2;
-    if (location.startsWith('/settings')) return 3;
+    try {
+      final location = GoRouterState.of(context).uri.toString();
+      if (location.startsWith('/labs')) return 1;
+      if (location.startsWith('/ask')) return 2;
+      if (location.startsWith('/settings')) return 3;
+    } catch (_) {}
     return 0; // /documents default
   }
+
 
   void _onItemTapped(int index, BuildContext context) {
     switch (index) {
@@ -55,7 +60,7 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
     // > 1024 px (desktop): Side NavigationDrawer / Rail expanded
     if (width < 600) {
       return Scaffold(
-        body: child,
+        body: _InstallBannerWrapper(child: child),
         bottomNavigationBar: NavigationBar(
           selectedIndex: selectedIndex,
           onDestinationSelected: (idx) => _onItemTapped(idx, context),
@@ -95,13 +100,73 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
               ],
             ),
             const VerticalDivider(thickness: 1, width: 1),
-            Expanded(child: child),
+            Expanded(child: _InstallBannerWrapper(child: child)),
           ],
         ),
       );
+
     }
   }
 }
+
+class _InstallBannerWrapper extends StatefulWidget {
+
+  final Widget child;
+  const _InstallBannerWrapper({required this.child});
+
+  @override
+  State<_InstallBannerWrapper> createState() => _InstallBannerWrapperState();
+}
+
+class _InstallBannerWrapperState extends State<_InstallBannerWrapper> {
+  bool _dismissed = false;
+
+  @override
+
+  void initState() {
+    super.initState();
+    _checkDismissed();
+  }
+
+  Future<void> _checkDismissed() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dismissed = prefs.getBool('install_hint_dismissed') ?? false;
+      if (mounted) setState(() => _dismissed = dismissed);
+    } catch (_) {}
+  }
+
+  Future<void> _dismiss() async {
+    setState(() => _dismissed = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('install_hint_dismissed', true);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_dismissed) return widget.child;
+
+    return Column(
+      children: [
+        MaterialBanner(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          leading: const Icon(Icons.install_mobile, color: Color(0xFF0D9488)),
+          content: const Text('Install SwasthyaStats: tap browser menu (⋮) → Add to Home Screen'),
+          actions: [
+            TextButton(
+              onPressed: _dismiss,
+              child: const Text('Dismiss', style: TextStyle(color: Color(0xFF0D9488))),
+            ),
+          ],
+        ),
+        Expanded(child: widget.child),
+      ],
+    );
+  }
+}
+
 
 // Placeholder screens for features built in Week 5
 
