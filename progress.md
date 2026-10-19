@@ -428,3 +428,42 @@ Implement Week 4 deliverables according to `prototype-architecture.md`:
 | Visual confirmation | ✅ Review tab no longer visible in browser |
 
 **Note:** Source change alone isn't enough for WASM builds — must rebuild (`flutter build web --wasm`) and hard-refresh the browser.
+
+## Task: Week 5 - Ask/RAG Feature, PWA Polish, Evaluation Bake-off, and Demo Script
+
+- **Date:** 2026-10-18 / 2026-10-19
+- **Status:** Completed
+
+### Deliverables
+1. **RAG Tools Layer (`api/app/rag/tools.py`)**: Read-only tools `list_tests`, `get_observations`, `get_latest_observations`, `search_documents` using RRF hybrid search.
+2. **RAG Orchestrator (`api/app/rag/orchestrator.py`, `prompts.py`)**: Multi-turn tool calling with router prompt fallback and refusal for unanswerable queries.
+3. **`POST /api/v1/ask` Endpoint (`api/app/routers/ask.py`)**: Mounted under `/api/v1/ask` with `AskResponse` and `CitationRef` schema.
+4. **Flutter Ask Screen (`app/lib/features/ask/`)**: Interactive chat interface with `flutter_markdown_plus` rendering and citation chips linked to confirmed records.
+5. **PWA Polish**: Offline connectivity banner, PWA install prompt banner, and service worker update listener.
+6. **Lighthouse Audit**: 100/100 Accessibility, 100/100 SEO, 81/100 Best Practices.
+7. **RAG Evaluation Bake-off**: 100% accuracy on valid QA pairs; detailed analysis and demo script in `eval/demo_script.md`.
+8. **Final Verification**: 58/58 backend tests pass, 12/12 Flutter tests pass, 0 analyzer issues, Web Wasm compiled.
+
+## Task: Multi-page Extraction & Review Page Navigation Fixes
+
+- **Date:** 2026-10-19
+- **Status:** Completed
+
+### Problems
+1. **Multi-page PDF stalls**: Ingestion sent successive requests without delays, tripping Groq's 7,000 ITPM rate limit on page 2.
+2. **Missing extracted records**: OCR passed flat disconnected word boxes; LLM struggled to parse unassociated fragments and missed table rows.
+3. **Review screen page navigation freeze**: In `ReviewScreen`, setting `_loadedPageNo = state.selectedPageNo` in build caused `_loadPageImage` to return immediately because it saw the page as already loaded, freezing the image pane on Page 1.
+4. **Phantom test extraction**: Units and reference range fragments (e.g., `cells`, `cumm` from Platelet rows) were extracted as separate tests.
+
+### Solutions
+1. Added 5-second pacing delay between pages during extraction.
+2. Grouped OCR bounding boxes by `row_id` into pipe-delimited table rows with explicit `[Line IDs: ...]` tags.
+3. Fixed image loading state management by using `_lastRequestedPage` for scheduling guards, and added interactive page switcher buttons `< Page X of Y >` and page filter tabs (`All`, `Page 1`, `Page 2`, ...) in the review window.
+4. Added negative constraints in `EXTRACTION_SYSTEM_PROMPT` and filter list in `normalize.py` to prevent units/headers from becoming observations.
+
+### Verification
+- Flutter analyze: 0 issues
+- Flutter tests: 12/12 passed
+- Backend tests: 58/58 passed
+- Wasm build: compiled and served successfully
+
