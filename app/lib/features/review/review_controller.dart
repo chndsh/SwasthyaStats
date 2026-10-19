@@ -7,6 +7,7 @@ class ReviewState {
   final String status;
   final List<ObservationModel> observations;
   final List<dynamic> ocrLines;
+  final int pageCount;
   final int selectedPageNo;
   final int? selectedObservationId;
   final bool isConfirming;
@@ -16,6 +17,7 @@ class ReviewState {
     required this.status,
     required this.observations,
     required this.ocrLines,
+    this.pageCount = 1,
     this.selectedPageNo = 1,
     this.selectedObservationId,
     this.isConfirming = false,
@@ -25,6 +27,7 @@ class ReviewState {
     String? status,
     List<ObservationModel>? observations,
     List<dynamic>? ocrLines,
+    int? pageCount,
     int? selectedPageNo,
     int? selectedObservationId,
     bool? isConfirming,
@@ -34,6 +37,7 @@ class ReviewState {
       status: status ?? this.status,
       observations: observations ?? this.observations,
       ocrLines: ocrLines ?? this.ocrLines,
+      pageCount: pageCount ?? this.pageCount,
       selectedPageNo: selectedPageNo ?? this.selectedPageNo,
       selectedObservationId: selectedObservationId ?? this.selectedObservationId,
       isConfirming: isConfirming ?? this.isConfirming,
@@ -72,6 +76,7 @@ class ReviewController extends FamilyAsyncNotifier<ReviewState, int> {
       status: data['status'] as String? ?? 'needs_review',
       observations: obs,
       ocrLines: data['ocr_lines'] as List<dynamic>? ?? [],
+      pageCount: data['page_count'] as int? ?? 1,
       selectedPageNo: firstPage,
       selectedObservationId: firstObsId,
     );

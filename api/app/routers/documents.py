@@ -119,6 +119,7 @@ def get_document_extraction(document_id: int, db: Session = Depends(get_db)):
     return ExtractionRead(
         document_id=doc.id,
         status=doc.status,
+        page_count=doc.page_count or 1,
         observations=obs_list,
         ocr_lines=doc.ocr_lines or [],
     )
@@ -204,15 +205,9 @@ def delete_document(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     # Delete child records in dependency order
-    page_ids = [p.id for p in db.query(DocumentPage).filter(DocumentPage.document_id == document_id).all()]
-    if page_ids:
-        db.query(Chunk).filter(Chunk.document_id == document_id).delete(synchronize_session=False)
-        extraction_ids = [
-            e.id for e in db.query(Extraction).filter(Extraction.page_id.in_(page_ids)).all()
-        ]
-        if extraction_ids:
-            db.query(Observation).filter(Observation.extraction_id.in_(extraction_ids)).delete(synchronize_session=False)
-        db.query(Extraction).filter(Extraction.page_id.in_(page_ids)).delete(synchronize_session=False)
+    db.query(Chunk).filter(Chunk.document_id == document_id).delete(synchronize_session=False)
+    db.query(Observation).filter(Observation.document_id == document_id).delete(synchronize_session=False)
+    db.query(Extraction).filter(Extraction.document_id == document_id).delete(synchronize_session=False)
     db.query(DocumentPage).filter(DocumentPage.document_id == document_id).delete(synchronize_session=False)
     db.delete(doc)
     db.commit()

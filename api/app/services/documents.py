@@ -264,11 +264,32 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
     confidence_map = {}
 
     for page_no in range(1, total_pages + 1):
+        if page_no > 1:
+            import time
+            time.sleep(5.0)  # Pacing between pages to avoid Groq ITPM rate limit
+
         page_lines = [l for l in doc.ocr_lines if l.get("page") == page_no] if doc.ocr_lines else []
         if not page_lines and total_pages == 1 and doc.ocr_lines:
             page_lines = doc.ocr_lines
 
-        page_text = "\n".join([l.get("text", "") for l in page_lines])
+        # Group lines by row_id to present structured table rows with exact line IDs
+        rows_by_id = {}
+        for l in page_lines:
+            rid = l.get("row_id", 0)
+            rows_by_id.setdefault(rid, []).append(l)
+
+        if len(rows_by_id) > 1 or (rows_by_id and 0 not in rows_by_id):
+            row_strings = []
+            for rid in sorted(rows_by_id.keys()):
+                r_lines = rows_by_id[rid]
+                cells_text = " | ".join(l.get("text", "").strip() for l in r_lines if l.get("text", "").strip())
+                r_ids = [l["id"] for l in r_lines if "id" in l]
+                if cells_text:
+                    row_strings.append(f"[Line IDs: {r_ids}]: {cells_text}")
+            page_text = "\n".join(row_strings)
+        else:
+            page_text = "\n".join([l.get("text", "") for l in page_lines])
+
         if not page_text and doc.ocr_text and total_pages == 1:
             page_text = doc.ocr_text
 

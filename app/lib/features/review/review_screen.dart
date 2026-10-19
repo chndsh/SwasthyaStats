@@ -186,14 +186,44 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             top: 8,
             right: 8,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(4),
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Text(
-                'Page ${state.selectedPageNo}',
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (state.pageCount > 1)
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, color: Colors.white, size: 18),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: state.selectedPageNo > 1
+                          ? () => ref
+                              .read(reviewControllerProvider(widget.documentId).notifier)
+                              .selectPage(state.selectedPageNo - 1)
+                          : null,
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Text(
+                      'Page ${state.selectedPageNo} of ${state.pageCount}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  if (state.pageCount > 1)
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right, color: Colors.white, size: 18),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: state.selectedPageNo < state.pageCount
+                          ? () => ref
+                              .read(reviewControllerProvider(widget.documentId).notifier)
+                              .selectPage(state.selectedPageNo + 1)
+                          : null,
+                    ),
+                ],
               ),
             ),
           ),
@@ -227,9 +257,26 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               radius: 6,
               backgroundColor: confColor,
             ),
-            title: Text(
-              obs.testName,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    obs.testName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'p.${obs.pageNo}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

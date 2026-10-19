@@ -167,6 +167,7 @@ class ObservationPatch(BaseModel):
 class ExtractionRead(BaseModel):
     document_id: int
     status: str
+    page_count: int = 1
     observations: List[ObservationRead]
     ocr_lines: List[Dict[str, Any]] = []
 

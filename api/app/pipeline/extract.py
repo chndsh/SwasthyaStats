@@ -33,9 +33,10 @@ class LabReportRaw(BaseModel):
 
 EXTRACTION_SYSTEM_PROMPT = """You extract lab test results from OCR text of a medical lab report.
 Return strictly valid JSON matching the schema.
-Each observation must reference the exact line_ids it was extracted from.
+Extract ALL lab test results and observations present in the text, do not omit any.
+Each observation must reference the exact line_ids it was extracted from (found in [Line IDs: ...] prefixes or available line IDs).
 Do not invent values or flags not supported by the text.
-If a test result is non-numeric (e.g. Negative, Reactive), place it in value_text.
+If a test result is non-numeric (e.g. Negative, Reactive, Absent), place it in value_text.
 Otherwise place numeric numbers in value, and reference range numbers in ref_low / ref_high."""
 
 
