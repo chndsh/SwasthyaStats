@@ -19,6 +19,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   Uint8List? _imageBytes;
   bool _isLoadingImage = false;
   int _loadedPageNo = -1;
+  int _lastRequestedPage = -1;
+  int? _filterPageNo;
 
   Future<void> _loadPageImage(int pageNo) async {
     if (_loadedPageNo == pageNo && _imageBytes != null) return;
@@ -41,6 +43,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       if (mounted) {
         setState(() {
           _imageBytes = null;
+          _loadedPageNo = pageNo;
           _isLoadingImage = false;
         });
       }
@@ -153,10 +156,12 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   }
 
   Widget _buildImagePane(ReviewState state) {
-    if (_loadedPageNo != state.selectedPageNo && !_isLoadingImage) {
-      _loadedPageNo = state.selectedPageNo;
+    if (_loadedPageNo != state.selectedPageNo &&
+        _lastRequestedPage != state.selectedPageNo &&
+        !_isLoadingImage) {
+      _lastRequestedPage = state.selectedPageNo;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadPageImage(state.selectedPageNo);
+        if (mounted) _loadPageImage(state.selectedPageNo);
       });
     }
 
@@ -200,9 +205,13 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: state.selectedPageNo > 1
-                          ? () => ref
-                              .read(reviewControllerProvider(widget.documentId).notifier)
-                              .selectPage(state.selectedPageNo - 1)
+                          ? () {
+                              final p = state.selectedPageNo - 1;
+                              ref
+                                  .read(reviewControllerProvider(widget.documentId).notifier)
+                                  .selectPage(p);
+                              _loadPageImage(p);
+                            }
                           : null,
                     ),
                   Padding(
@@ -218,9 +227,13 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: state.selectedPageNo < state.pageCount
-                          ? () => ref
-                              .read(reviewControllerProvider(widget.documentId).notifier)
-                              .selectPage(state.selectedPageNo + 1)
+                          ? () {
+                              final p = state.selectedPageNo + 1;
+                              ref
+                                  .read(reviewControllerProvider(widget.documentId).notifier)
+                                  .selectPage(p);
+                              _loadPageImage(p);
+                            }
                           : null,
                     ),
                 ],
@@ -234,12 +247,56 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   Widget _buildObservationsList(ReviewState state) {
     final isConfirmed = state.status == 'confirmed';
+    final filteredObs = _filterPageNo == null
+        ? state.observations
+        : state.observations.where((o) => o.pageNo == _filterPageNo).toList();
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: state.observations.length,
-      itemBuilder: (ctx, i) {
-        final obs = state.observations[i];
+    return Column(
+      children: [
+        if (state.pageCount > 1)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ChoiceChip(
+                    label: Text('All (${state.observations.length})'),
+                    selected: _filterPageNo == null,
+                    onSelected: (selected) {
+                      if (selected) setState(() => _filterPageNo = null);
+                    },
+                  ),
+                  for (int p = 1; p <= state.pageCount; p++) ...[
+                    const SizedBox(width: 6),
+                    ChoiceChip(
+                      label: Text('Page $p (${state.observations.where((o) => o.pageNo == p).length})'),
+                      selected: _filterPageNo == p,
+                      onSelected: (selected) {
+                        setState(() => _filterPageNo = selected ? p : null);
+                        if (selected) {
+                          ref
+                              .read(reviewControllerProvider(widget.documentId).notifier)
+                              .selectPage(p);
+                          _loadPageImage(p);
+                        }
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(8),
+            itemCount: filteredObs.length,
+            itemBuilder: (ctx, i) {
+              final obs = filteredObs[i];
         final isSelected = obs.id == state.selectedObservationId;
         final confColor = _getConfidenceColor(obs.confidence);
 
@@ -333,6 +390,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           ),
         );
       },
+    ),
+    ),
+    ],
     );
   }
 

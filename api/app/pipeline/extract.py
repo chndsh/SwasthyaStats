@@ -33,11 +33,14 @@ class LabReportRaw(BaseModel):
 
 EXTRACTION_SYSTEM_PROMPT = """You extract lab test results from OCR text of a medical lab report.
 Return strictly valid JSON matching the schema.
-Extract ALL lab test results and observations present in the text, do not omit any.
+Extract ALL genuine medical lab test results and observations present in the text, do not omit any.
 Each observation must reference the exact line_ids it was extracted from (found in [Line IDs: ...] prefixes or available line IDs).
-Do not invent values or flags not supported by the text.
-If a test result is non-numeric (e.g. Negative, Reactive, Absent), place it in value_text.
-Otherwise place numeric numbers in value, and reference range numbers in ref_low / ref_high."""
+CRITICAL RULES:
+- NEVER extract units, column headers, reference range boundaries, or methods as test names (e.g. 'cumm', 'cells', 'HPF', 'Method', 'Unit', 'Ref. Range', 'Turbidimetric' are NOT tests).
+- If a test name wraps across multiple words or lines, use the full test name (e.g. 'Platelet', 'Packed Cell Volume (PCV)').
+- Do not invent values or flags not supported by the text.
+- If a test result is non-numeric (e.g. Negative, Reactive, Absent), place it in value_text.
+- Otherwise place numeric numbers in value, and reference range numbers in ref_low / ref_high."""
 
 
 def _clean_json_markdown(text: str) -> str:

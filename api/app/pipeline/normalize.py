@@ -50,8 +50,16 @@ def score_observations(
     """
     lines_by_id = {line["id"]: line for line in ocr_lines if "id" in line}
     results: List[ScoredObservation] = []
+    invalid_names = {
+        "cells", "cumm", "hpf", "/hpf", "method", "unit", "ref range", "ref. range",
+        "finding", "findings", "test name", "result", "turbidimetric"
+    }
 
     for obs in raw_obs:
+        clean_name = obs.test_name.strip().lower()
+        if clean_name in invalid_names:
+            continue
+
         # 1. Find referenced OCR lines
         referenced_lines = [lines_by_id[lid] for lid in obs.line_ids if lid in lines_by_id]
         if referenced_lines:
