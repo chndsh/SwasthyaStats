@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'ask_controller.dart';
@@ -243,80 +244,70 @@ class _AssistantAnswerView extends StatelessWidget {
 
   const _AssistantAnswerView({required this.text, required this.citations});
 
+  // Strip inline [obs:N] / [doc:N p:N] tags — citations are shown as chips below
+  static final _citationTag = RegExp(r'\s*\[(?:obs|doc):\d+(?:\s+p:\d+)?\]');
+
   @override
   Widget build(BuildContext context) {
-    // Regex splits text into spans and [obs:ID] / [doc:ID p:N] chips
-    final regex = RegExp(r'(\[obs:\d+\]|\[doc:\d+(?:\s+p:\d+)?\])');
-    final matches = regex.allMatches(text).toList();
+    final cleanText = text.replaceAll(_citationTag, '').trim();
+    final bodyColor = Theme.of(context).textTheme.bodyMedium?.color;
 
-    if (matches.isEmpty) {
-      return SelectableText(text);
-    }
-
-    final spans = <InlineSpan>[];
-    int lastEnd = 0;
-
-    for (final match in matches) {
-      if (match.start > lastEnd) {
-        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
-      }
-
-      final tag = match.group(0)!;
-      final obsMatch = RegExp(r'\[obs:(\d+)\]').firstMatch(tag);
-      final docMatch = RegExp(r'\[doc:(\d+)(?:\s+p:(\d+))?\]').firstMatch(tag);
-
-      if (obsMatch != null) {
-        final obsId = obsMatch.group(1)!;
-        spans.add(
-          WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2.0),
-              child: ActionChip(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                avatar: const Icon(Icons.bookmark_border, size: 14),
-                label: Text('obs:$obsId', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                onPressed: () {
-                  // Direct to labs or documents tab
-                  context.go('/labs');
-                },
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MarkdownBody(
+          data: cleanText,
+          selectable: true,
+          styleSheet: MarkdownStyleSheet(
+            p: TextStyle(color: bodyColor, fontSize: 14, height: 1.5),
+            strong: TextStyle(color: bodyColor, fontWeight: FontWeight.bold, fontSize: 14),
+            em: TextStyle(color: bodyColor, fontStyle: FontStyle.italic, fontSize: 14),
+            code: TextStyle(
+              color: bodyColor,
+              backgroundColor: Colors.black12,
+              fontFamily: 'monospace',
+              fontSize: 13,
             ),
+            listBullet: TextStyle(color: bodyColor, fontSize: 14),
           ),
-        );
-      } else if (docMatch != null) {
-        final docId = docMatch.group(1)!;
-        final pageNo = docMatch.group(2);
-        final label = pageNo != null ? 'doc:$docId p:$pageNo' : 'doc:$docId';
-        spans.add(
-          WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2.0),
-              child: ActionChip(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                avatar: const Icon(Icons.description, size: 14),
-                label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                onPressed: () {
-                  context.go('/documents/$docId');
-                },
-              ),
-            ),
+        ),
+        if (citations.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: citations.map((c) => _CitationChip(citation: c)).toList(),
           ),
-        );
-      }
-
-      lastEnd = match.end;
-    }
-
-    if (lastEnd < text.length) {
-      spans.add(TextSpan(text: text.substring(lastEnd)));
-    }
-
-    return SelectableText.rich(TextSpan(children: spans));
+        ],
+      ],
+    );
   }
 }
+
+class _CitationChip extends StatelessWidget {
+  final CitationRef citation;
+  const _CitationChip({required this.citation});
+
+  @override
+  Widget build(BuildContext context) {
+    final isObs = citation.type == 'obs';
+    final label = isObs ? 'obs:${citation.id}' : 'doc:${citation.id}${citation.page != null ? ' p:${citation.page}' : ''}';
+
+    return ActionChip(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+      avatar: Icon(isObs ? Icons.bookmark_border : Icons.description, size: 14),
+      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+      onPressed: () {
+        if (isObs) {
+          context.go('/labs');
+        } else {
+          context.go('/documents/${citation.id}');
+        }
+      },
+    );
+  }
+}
+
