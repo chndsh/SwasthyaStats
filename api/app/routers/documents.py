@@ -2,10 +2,10 @@ import os
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Response, Query
 from sqlalchemy.orm import Session
-from app.db import get_db
-from app.security.auth import verify_api_key
+from app.db import get_db, set_rls_user_id
+from app.security.auth import get_current_user
 import shutil
-from app.models import Document, DocumentPage, Extraction, Observation, Chunk
+from app.models import Document, DocumentPage, Extraction, Observation, Chunk, User
 from app.schemas import DocumentRead, DocumentUploadResponse, ExtractionRead, ObservationRead, ObservationCreate
 from app.services.documents import validate_and_create_document, process_document_background, get_lab_dictionary
 from app.pipeline.normalize import _find_canonical_test_id
@@ -17,30 +17,32 @@ router = APIRouter(prefix="/api/v1/documents", tags=["Documents"])
     "",
     response_model=DocumentUploadResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[Depends(verify_api_key)],
 )
 async def upload_documents(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Uploads 1..n page images or 1 PDF document and enqueues normalization and OCR."""
-    doc, file_payloads = validate_and_create_document(files=files, db=db)
-    background_tasks.add_task(process_document_background, doc.id, file_payloads)
+    set_rls_user_id(db, current_user.id)
+    doc, file_payloads = validate_and_create_document(files=files, db=db, user_id=current_user.id)
+    background_tasks.add_task(process_document_background, doc.id, file_payloads, current_user.id)
     return DocumentUploadResponse(id=doc.id, status=doc.status, page_count=doc.page_count)
 
 
 @router.get(
     "",
     response_model=List[DocumentRead],
-    dependencies=[Depends(verify_api_key)],
 )
 def list_documents(
     sort_by: Optional[str] = Query("date_desc"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Lists all documents for the primary patient, ordered by requested sort option."""
-    query = db.query(Document)
+    """Lists all documents for the current user, ordered by requested sort option."""
+    set_rls_user_id(db, current_user.id)
+    query = db.query(Document).filter(Document.user_id == current_user.id)
     if sort_by == "doctor_asc":
         query = query.order_by(Document.doctor_name.asc().nullslast(), Document.created_at.desc())
     elif sort_by == "doctor_desc":
@@ -57,11 +59,15 @@ def list_documents(
 @router.get(
     "/{document_id}",
     response_model=DocumentRead,
-    dependencies=[Depends(verify_api_key)],
 )
-def get_document(document_id: int, db: Session = Depends(get_db)):
+def get_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Retrieves document details and pages."""
-    doc = db.query(Document).filter(Document.id == document_id).first()
+    set_rls_user_id(db, current_user.id)
+    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == current_user.id).first()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     return doc
@@ -69,14 +75,19 @@ def get_document(document_id: int, db: Session = Depends(get_db)):
 
 @router.get(
     "/{document_id}/pages/{page_no}.png",
-    dependencies=[Depends(verify_api_key)],
 )
 def get_document_page_image(
     document_id: int,
     page_no: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Streams the normalized page image used for OCR and displayed in review/document view."""
+    set_rls_user_id(db, current_user.id)
+    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == current_user.id).first()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
     page = (
         db.query(DocumentPage)
         .filter(DocumentPage.document_id == document_id, DocumentPage.page_no == page_no)
@@ -94,11 +105,15 @@ def get_document_page_image(
 @router.get(
     "/{document_id}/extraction",
     response_model=ExtractionRead,
-    dependencies=[Depends(verify_api_key)],
 )
-def get_document_extraction(document_id: int, db: Session = Depends(get_db)):
+def get_document_extraction(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Retrieves document's extracted observations, OCR lines, and confidence scores."""
-    doc = db.query(Document).filter(Document.id == document_id).first()
+    set_rls_user_id(db, current_user.id)
+    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == current_user.id).first()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
@@ -110,7 +125,7 @@ def get_document_extraction(document_id: int, db: Session = Depends(get_db)):
     )
     conf_map = ext.field_confidence if ext and ext.field_confidence else {}
 
-    raw_obs = db.query(Observation).filter(Observation.document_id == document_id).all()
+    raw_obs = db.query(Observation).filter(Observation.document_id == document_id, Observation.user_id == current_user.id).all()
     obs_list = []
     for o in raw_obs:
         obs_dict = {
@@ -144,15 +159,16 @@ def get_document_extraction(document_id: int, db: Session = Depends(get_db)):
     "/{document_id}/observations",
     response_model=ObservationRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(verify_api_key)],
 )
 def add_manual_observation(
     document_id: int,
     obs_in: ObservationCreate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Manually adds a missed observation to a document before confirmation."""
-    doc = db.query(Document).filter(Document.id == document_id).first()
+    set_rls_user_id(db, current_user.id)
+    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == current_user.id).first()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     if doc.status == "confirmed":
@@ -165,7 +181,7 @@ def add_manual_observation(
     canon_id = _find_canonical_test_id(obs_in.test_name, lab_dict)
 
     obs = Observation(
-        patient_id=doc.patient_id,
+        user_id=current_user.id,
         document_id=doc.id,
         test_name=obs_in.test_name,
         canonical_test_id=canon_id,
@@ -215,18 +231,18 @@ def add_manual_observation(
     )
 
 
-
 @router.post(
     "/{document_id}/confirm",
-    dependencies=[Depends(verify_api_key)],
 )
 def confirm_document(
     document_id: int,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Confirms all pending observations for a document and marks document as confirmed."""
-    doc = db.query(Document).filter(Document.id == document_id).first()
+    set_rls_user_id(db, current_user.id)
+    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == current_user.id).first()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
@@ -246,15 +262,16 @@ def confirm_document(
 
 @router.post(
     "/{document_id}/retry",
-    dependencies=[Depends(verify_api_key)],
 )
 def retry_document_extraction(
     document_id: int,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Re-enqueues extraction for documents stalled in rate_limited or failed status."""
-    doc = db.query(Document).filter(Document.id == document_id).first()
+    set_rls_user_id(db, current_user.id)
+    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == current_user.id).first()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
@@ -268,7 +285,7 @@ def retry_document_extraction(
     db.commit()
 
     # Define background worker wrapper with its own DB session
-    def _retry_worker(d_id: int):
+    def _retry_worker(d_id: int, u_id: int):
         from app.db import SessionLocal
         from app.services.documents import _run_extraction_stage
         s = SessionLocal()
@@ -277,21 +294,22 @@ def retry_document_extraction(
         finally:
             s.close()
 
-    background_tasks.add_task(_retry_worker, doc.id)
+    background_tasks.add_task(_retry_worker, doc.id, current_user.id)
     return {"id": doc.id, "status": doc.status}
 
 
 @router.delete(
     "/{document_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(verify_api_key)],
 )
 def delete_document(
     document_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Deletes a document and all associated records and files."""
-    doc = db.query(Document).filter(Document.id == document_id).first()
+    set_rls_user_id(db, current_user.id)
+    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == current_user.id).first()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 

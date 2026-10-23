@@ -118,7 +118,8 @@ class DocumentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    patient_id: int
+    user_id: Optional[int] = None
+    patient_id: Optional[int] = None
     filename: str
     status: str
     doctor_name: Optional[str] = None

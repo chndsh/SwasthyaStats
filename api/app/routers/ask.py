@@ -3,8 +3,9 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.db import get_db
-from app.security.auth import verify_api_key
+from app.db import get_db, set_rls_user_id
+from app.security.auth import get_current_user
+from app.models import User
 from app.schemas import AskResponse
 from app.rag.orchestrator import ask as orchestrator_ask
 
@@ -18,9 +19,13 @@ class AskRequest(BaseModel):
 @router.post(
     "/ask",
     response_model=AskResponse,
-    dependencies=[Depends(verify_api_key)],
 )
-def ask_question(req: AskRequest, db: Session = Depends(get_db)):
+def ask_question(
+    req: AskRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Answer patient questions based on confirmed records and hybrid search."""
+    set_rls_user_id(db, current_user.id)
     result = orchestrator_ask(db, req.question)
     return AskResponse(answer=result.answer, citations=result.citations)

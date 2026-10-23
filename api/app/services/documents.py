@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import SessionLocal
 import json
-from app.models import Document, DocumentPage, Patient, Extraction, Observation
+from app.models import Document, DocumentPage, User, Extraction, Observation
 from app.pipeline.normalize_pages import process_upload_to_pages, NormalizedPage
 from app.pipeline.ocr.easyocr_engine import EasyOcrEngine
 from app.pipeline.redact import redact_text
@@ -38,7 +38,7 @@ def get_ocr_engine() -> EasyOcrEngine:
 def validate_and_create_document(
     files: List[UploadFile],
     db: Session,
-    patient_id: int = 1,
+    user_id: int = 1,
 ) -> Tuple[Document, List[Tuple[str, bytes]]]:
     """Validates uploaded files, computes SHA256, and creates queued Document record."""
     if not files:
@@ -51,12 +51,12 @@ def validate_and_create_document(
             detail=f"Too many files: upload limit is {MAX_PAGES} images per request",
         )
 
-    # Ensure patient exists
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        patient = Patient(id=patient_id, name="Primary Patient")
-        db.add(patient)
-        db.commit()
+    # Ensure user exists or fallback to first available user
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        user = db.query(User).first()
+        if user:
+            user_id = user.id
 
     file_payloads: List[Tuple[str, bytes]] = []
     total_bytes = 0
@@ -97,7 +97,7 @@ def validate_and_create_document(
     primary_filename = file_payloads[0][0] if len(file_payloads) == 1 else f"{file_payloads[0][0]} (+{len(file_payloads)-1} files)"
 
     doc = Document(
-        patient_id=patient_id,
+        user_id=user_id,
         filename=primary_filename,
         sha256=sha256_hash,
         status="queued",
@@ -110,10 +110,13 @@ def validate_and_create_document(
     return doc, file_payloads
 
 
-def process_document_background(doc_id: int, file_payloads: List[Tuple[str, bytes]]) -> None:
+def process_document_background(doc_id: int, file_payloads: List[Tuple[str, bytes]], user_id: Optional[int] = None) -> None:
     """Asynchronous background worker executing page normalization and EasyOCR."""
     settings = get_settings()
     db = SessionLocal()
+    if user_id:
+        from app.db import set_rls_user_id
+        set_rls_user_id(db, user_id)
 
     try:
         doc = db.query(Document).filter(Document.id == doc_id).first()
@@ -250,7 +253,7 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
     prompt_version = "v1"
 
     client = OpenAICompatClient(db)
-    patient_name = doc.patient.name if doc.patient else None
+    patient_name = doc.user.display_name if (doc.user and doc.user.display_name) else None
     lab_dict = get_lab_dictionary()
 
     # Clear previous pending observations for this document (e.g. on re-run / retry)
@@ -362,7 +365,7 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
 
         for s in scored:
             obs_rec = Observation(
-                patient_id=doc.patient_id,
+                user_id=doc.user_id,
                 document_id=doc.id,
                 test_name=s.obs.test_name,
                 canonical_test_id=s.canonical_test_id,

@@ -1,4 +1,5 @@
 import datetime
+import json
 from sqlalchemy import (
     Column,
     Integer,
@@ -11,11 +12,32 @@ from sqlalchemy import (
     Text,
     ARRAY,
     func,
+    TypeDecorator,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 from app.db import Base
+
+
+class TextOrJSON(TypeDecorator):
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, (dict, list)):
+            return json.dumps(value)
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        try:
+            return json.loads(value)
+        except Exception:
+            return value
 
 
 class User(Base):
@@ -58,7 +80,7 @@ class Document(Base):
     __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, default=1, index=True)
     filename = Column(String(255), nullable=False)
     sha256 = Column(String(64), nullable=False, index=True)
     status = Column(
@@ -80,6 +102,14 @@ class Document(Base):
     extractions = relationship("Extraction", back_populates="document", cascade="all, delete-orphan")
     observations = relationship("Observation", back_populates="document", cascade="all, delete-orphan")
     chunks = relationship("Chunk", back_populates="document", cascade="all, delete-orphan")
+
+    @property
+    def patient_id(self) -> int:
+        return self.user_id
+
+    @patient_id.setter
+    def patient_id(self, val: int):
+        self.user_id = val
 
 
 class DocumentPage(Base):
@@ -105,7 +135,7 @@ class Extraction(Base):
     prompt_version = Column(String(50), nullable=False)
     structured_mode = Column(String(50), nullable=True)
     input_hash = Column(String(64), nullable=True, index=True)
-    raw_json = Column(Text, nullable=True)  # Encrypted JSON string
+    raw_json = Column(TextOrJSON, nullable=True)  # Encrypted JSON string or dict
     field_confidence = Column(JSONB, nullable=True)
     reviewer_edits = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -117,7 +147,7 @@ class Observation(Base):
     __tablename__ = "observations"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, default=1, index=True)
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
     test_name = Column(String(255), nullable=False, index=True)
     canonical_test_id = Column(String(100), nullable=True, index=True)
@@ -135,12 +165,20 @@ class Observation(Base):
     user = relationship("User", back_populates="observations")
     document = relationship("Document", back_populates="observations")
 
+    @property
+    def patient_id(self) -> int:
+        return self.user_id
+
+    @patient_id.setter
+    def patient_id(self, val: int):
+        self.user_id = val
+
 
 class Chunk(Base):
     __tablename__ = "chunks"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, default=1, index=True)
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
     text = Column(Text, nullable=False)
     embed_model = Column(String(100), nullable=False)

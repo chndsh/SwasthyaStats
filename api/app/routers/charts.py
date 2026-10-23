@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 
-from app.db import get_db
-from app.security.auth import verify_api_key
-from app.models import Observation
+from app.db import get_db, set_rls_user_id
+from app.security.auth import get_current_user
+from app.models import Observation, User
 from app.schemas import LabTestSummary, LabChartResponse, ChartPoint
 from app.services.documents import get_lab_dictionary
 from app.pipeline.normalize import _find_canonical_test_id
@@ -17,15 +17,18 @@ router = APIRouter(prefix="/api/v1", tags=["Charts"])
 @router.get(
     "/tests",
     response_model=List[LabTestSummary],
-    dependencies=[Depends(verify_api_key)],
 )
-def list_available_tests(db: Session = Depends(get_db)):
-    """Lists distinct lab tests having confirmed observations, normalized to canonical test IDs where matched."""
+def list_available_tests(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Lists distinct lab tests having confirmed observations for current user, normalized to canonical test IDs where matched."""
+    set_rls_user_id(db, current_user.id)
     lab_dict = get_lab_dictionary()
 
     confirmed_obs = (
         db.query(Observation)
-        .filter(Observation.status == "confirmed")
+        .filter(Observation.status == "confirmed", Observation.user_id == current_user.id)
         .order_by(
             Observation.collected_at.desc().nullslast(),
             Observation.id.desc(),
@@ -89,15 +92,16 @@ def list_available_tests(db: Session = Depends(get_db)):
 @router.get(
     "/charts/lab",
     response_model=LabChartResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 def get_lab_chart(
     test: str = Query(..., description="Test name to plot"),
     from_date: Optional[date] = Query(None, alias="from", description="Start date filter"),
     to_date: Optional[date] = Query(None, alias="to", description="End date filter"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Returns chronological time-series points and reference ranges for a lab test, alias-resolved."""
+    set_rls_user_id(db, current_user.id)
     lab_dict = get_lab_dictionary()
     clean_test = test.strip().lower()
     canon_id = clean_test if clean_test in lab_dict else _find_canonical_test_id(test, lab_dict)
@@ -106,6 +110,7 @@ def get_lab_chart(
         db.query(Observation)
         .filter(
             Observation.status == "confirmed",
+            Observation.user_id == current_user.id,
             Observation.collected_at.isnot(None),
             Observation.value_num.isnot(None),
         )

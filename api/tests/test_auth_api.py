@@ -57,21 +57,23 @@ def test_get_me():
 
 def test_create_user_admin_only():
     admin_token = get_admin_token()
+    import uuid
+    u_email = f"user_{uuid.uuid4().hex[:8]}@test.com"
     # Create regular user
     resp = client.post(
         "/auth/users",
-        json={"email": "regular@test.com", "password": "userpass123", "display_name": "Regular User"},
+        json={"email": u_email, "password": "userpass123", "display_name": "Regular User"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 201
     user_data = resp.json()
-    assert user_data["email"] == "regular@test.com"
+    assert user_data["email"] == u_email
     assert user_data["is_admin"] is False
 
     # Login as regular user
     user_login = client.post(
         "/auth/login",
-        json={"email": "regular@test.com", "password": "userpass123"},
+        json={"email": u_email, "password": "userpass123"},
     )
     assert user_login.status_code == 200
     regular_token = user_login.json()["access_token"]
@@ -126,9 +128,11 @@ def test_logout_revokes_refresh_token():
 
 def test_delete_user():
     admin_token = get_admin_token()
+    import uuid
+    del_email = f"del_{uuid.uuid4().hex[:8]}@test.com"
     create = client.post(
         "/auth/users",
-        json={"email": "delete_me@test.com", "password": "temp", "display_name": "Delete Me"},
+        json={"email": del_email, "password": "temp", "display_name": "Delete Me"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert create.status_code == 201

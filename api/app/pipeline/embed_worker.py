@@ -54,6 +54,7 @@ def embed_document(document_id: int) -> None:
         model_name = getattr(engine, "model_name", "multilingual-e5-small")
         for (text, page), vec in zip(chunk_items, vectors):
             chunk = Chunk(
+                user_id=doc.user_id,
                 document_id=doc.id,
                 text=text,
                 embed_model=model_name,
