@@ -356,15 +356,40 @@ Both packages are already common in the Flutter ecosystem and have no external s
 
 ---
 
-## Builder Decisions (left to the implementer)
+## Builder Decisions
 
-- Argon2id parameters: `time_cost=3, memory_cost=65536, parallelism=4` (OWASP recommended for interactive login)
-- JWT algorithm: HS256 (sufficient; RS256 not needed for single-server)
-- Refresh token rotation: yes — each `/auth/refresh` call issues a new refresh token and invalidates the previous
-- Refresh token blocklist: stored in a new `refresh_token_blocklist` table (token hash + expiry); cleaned up on startup
-- Flutter routing: go_router `redirect` guard on `authStateProvider`
-- Admin screen placement: accessible from the user avatar menu, only visible to `is_admin = true`
+The following were settled during the builder-check review. Marked as builder calls so readers know who decided them.
+
+- **Argon2id parameters:** `time_cost=3, memory_cost=65536, parallelism=4` (OWASP recommended for interactive login)
+- **JWT algorithm:** HS256 (sufficient; RS256 not needed for single-server)
+- **Refresh token rotation:** yes — each `/auth/refresh` call issues a new refresh token and invalidates the previous one
+- **Refresh token blocklist:** stored in a new `refresh_token_blocklist` table (token hash + expiry); cleaned up on startup
+- **Flutter routing:** go_router `redirect` guard on `authStateProvider`
+- **Admin screen placement:** accessible from user avatar menu, only visible to `is_admin = true`
+- **Background workers + user identity:** `user_id` is passed explicitly as a function parameter to `process_document_background`, `_run_extraction_stage`, and `embed_document`. `SettingsService` gains a `user_id` parameter to load per-user settings. `get_current_user()` is not available after the response is sent.
+- **RLS connection pool:** `app.current_user_id` is set on SQLAlchemy connection **checkout** and reset to `-1` on **check-in**. This prevents a stale RLS context leaking from one request to the next in a pooled connection.
+- **`ocr_lines`, `field_confidence`, `reviewer_edits` columns:** intentionally **not** encrypted at rest. Reason: all three are JSONB columns; encrypting them would require changing the column type to Text and breaking all existing JSONB key-path queries in the review and extraction pipelines. The plaintext health content in `ocr_lines` is already duplicated in the encrypted `ocr_text` field. Noted as a future enhancement once a typed-encryption layer is available.
+- **Env-var LLM key fallback (`GROQ_API_KEY`, `LLM_API_KEY`):** used **for the admin account only**. When the admin has no keys configured in `user_settings`, the backend falls back to env vars. Guest accounts receive no fallback — they must configure their own keys before AI features work. This ensures the host is never silently charged for guest AI usage.
+- **Flutter Web token storage:** `flutter_secure_storage` on Flutter Web falls back to browser `localStorage` with a JavaScript AES layer — **no hardware keychain**. This is acceptable for the web-first deployment target. The security property "hardware-encrypted on device" in the table below is updated to reflect reality.
 
 ---
 
-*This document was written after a full brainstorming session. Limitations are stated explicitly. All security properties are accurately described — no security is implied beyond what is stated.*
+## Corrected Security Properties (post builder-check)
+
+| Threat | Protected? | Mechanism |
+|--------|-----------|-----------|
+| DB dump / backup theft | ✅ Yes | Fields encrypted with per-user Fernet key |
+| Cross-user API access | ✅ Yes | `user_id` filter + PostgreSQL RLS |
+| Password database leak | ✅ Yes | Argon2id hashes only, never plaintext |
+| Guest's LLM API key exposure to host | ✅ Yes | Per-user encryption, never logged |
+| Host reading stored health data (ocr_text, raw_json) | ✅ Partial | Encrypted at rest; processing-time access unavoidable |
+| Host reading ocr_lines / field_confidence | ❌ No | JSONB compat constraint — plaintext in DB, disclosed |
+| Host reading chunk text (for Ask) | ❌ No | Plaintext required for retrieval — disclosed |
+| Token theft on device (web) | ⚠️ Partial | Browser localStorage + JS AES — no hardware keychain |
+| Token theft on device (native) | ✅ Yes | flutter_secure_storage uses OS hardware keystore |
+| Host env-var keys used for guest AI calls | ✅ No | Env-var fallback applies to admin account only |
+| MITM during processing | ❌ Not in scope | HTTPS / TLS is deployment-layer concern |
+
+---
+
+*This document was written after a full brainstorming session and a builder-check review. All limitations and security properties are stated accurately. No security is implied beyond what is written.*
