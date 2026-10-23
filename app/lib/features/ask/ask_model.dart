@@ -36,4 +36,25 @@ class AskMessage {
     this.citations = const [],
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
+
+  factory AskMessage.fromJson(Map<String, dynamic> json) {
+    final rawCitations = (json['citations'] as List<dynamic>?) ?? [];
+    return AskMessage(
+      role: json['role'] as String? ?? 'user',
+      text: json['text'] as String? ?? '',
+      citations: rawCitations
+          .map((c) => CitationRef.fromJson(c as Map<String, dynamic>))
+          .toList(),
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'role': role,
+        'text': text,
+        'citations': citations.map((c) => c.toJson()).toList(),
+        'timestamp': timestamp.toIso8601String(),
+      };
 }

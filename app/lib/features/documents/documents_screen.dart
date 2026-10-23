@@ -243,7 +243,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     final isOffline = ref.watch(isOfflineProvider);
     final docsAsync = ref.watch(documentsControllerProvider);
 
-    if (isOffline && docsAsync.hasError && (docsAsync.value == null || docsAsync.value!.isEmpty)) {
+    if (isOffline && (docsAsync.value == null || docsAsync.value!.isEmpty)) {
       return Scaffold(
         appBar: AppBar(title: const Text('Documents')),
         body: Center(

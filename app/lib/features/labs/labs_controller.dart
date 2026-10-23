@@ -25,12 +25,12 @@ class LabsController extends AsyncNotifier<List<LabTestSummary>> {
       final response = await client.dio.get('/tests');
       final data = response.data as List<dynamic>;
       final rawMaps = data.map((item) => item as Map<String, dynamic>).toList();
-      await cache.cacheLabs(rawMaps);
+      await cache?.cacheLabs(rawMaps);
       return rawMaps
           .map((item) => LabTestSummary.fromJson(item))
           .toList();
     } catch (_) {
-      final cached = await cache.getCachedLabs();
+      final cached = await cache?.getCachedLabs() ?? [];
       if (cached.isNotEmpty) {
         return cached
             .map((item) => LabTestSummary.fromJson(item))

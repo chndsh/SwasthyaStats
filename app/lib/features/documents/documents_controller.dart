@@ -26,10 +26,10 @@ class DocumentsController extends AsyncNotifier<List<DocumentItem>> {
       final response = await client.dio.get('/documents');
       final data = response.data as List<dynamic>;
       final rawMaps = data.map((d) => d as Map<String, dynamic>).toList();
-      await cache.cacheDocuments(rawMaps);
+      await cache?.cacheDocuments(rawMaps);
       return rawMaps.map((d) => DocumentItem.fromJson(d)).toList();
     } catch (_) {
-      final cached = await cache.getCachedDocuments();
+      final cached = await cache?.getCachedDocuments() ?? [];
       if (cached.isNotEmpty) {
         return cached.map((d) => DocumentItem.fromJson(d)).toList();
       }

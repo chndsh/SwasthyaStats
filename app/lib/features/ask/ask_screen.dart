@@ -95,37 +95,84 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       appBar: AppBar(
         title: const Text('Ask Health Records'),
         actions: [
-          if (messages.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined),
-              tooltip: 'Clear chat',
-              onPressed: () {
-                ref.read(askControllerProvider.notifier).clearHistory();
-              },
-            ),
+          IconButton(
+            icon: const Icon(Icons.restart_alt),
+            tooltip: 'Clear conversation history',
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Reset conversation?'),
+                  content: const Text(
+                    'This will clear the current chat messages and conversation history.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Reset'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                await ref.read(askControllerProvider.notifier).clearHistory();
+              }
+            },
+          ),
         ],
       ),
       body: Column(
         children: [
           Expanded(
             child: messages.isEmpty
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24.0),
+                ? Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24.0),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.chat_bubble_outline, size: 48, color: Colors.grey),
-                          SizedBox(height: 12),
-                          Text(
+                          const Icon(Icons.chat_bubble_outline, size: 48, color: Colors.grey),
+                          const SizedBox(height: 12),
+                          const Text(
                             'Ask anything about your health records',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
-                          SizedBox(height: 8),
-                          Text(
-                            'e.g. "What was my last HbA1c?" or "What medications am I taking?"\nAnswers include citation chips to verified records.',
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Answers include citation chips to verified records.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Suggested questions:',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              'What was my last HbA1c?',
+                              'Are any results abnormal?',
+                              'Show my lipid profile trends',
+                              'List all my recorded blood tests',
+                            ]
+                                .map(
+                                  (q) => ActionChip(
+                                    label: Text(q, style: const TextStyle(fontSize: 12)),
+                                    onPressed: () {
+                                      _textController.text = q;
+                                      _handleSend();
+                                    },
+                                  ),
+                                )
+                                .toList(),
                           ),
                         ],
                       ),
@@ -301,13 +348,109 @@ class _CitationChip extends StatelessWidget {
       avatar: Icon(isObs ? Icons.bookmark_border : Icons.description, size: 14),
       label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
       onPressed: () {
-        if (isObs) {
-          context.go('/labs');
-        } else {
-          context.go('/documents/${citation.id}');
-        }
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (ctx) => _CitationBottomSheet(citation: citation),
+        );
       },
     );
   }
 }
+
+class _CitationBottomSheet extends StatelessWidget {
+  final CitationRef citation;
+
+  const _CitationBottomSheet({required this.citation});
+
+  @override
+  Widget build(BuildContext context) {
+    final isObs = citation.type == 'obs';
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: const Color(0xFFE6FFFA),
+                  child: Icon(
+                    isObs ? Icons.bookmark_border : Icons.description,
+                    color: const Color(0xFF0D9488),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isObs ? 'Cited Observation Record' : 'Cited Document Page',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      Text(
+                        isObs
+                            ? 'Record ID: #${citation.id}'
+                            : 'Document ID: #${citation.id}${citation.page != null ? ' (Page ${citation.page})' : ''}',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Text(
+              isObs
+                  ? 'This fact in the AI answer was cited directly from confirmed observation record #${citation.id}. You can inspect its trend chart and historical values in Labs.'
+                  : 'This fact in the AI answer was cited directly from document #${citation.id}${citation.page != null ? ' (Page ${citation.page})' : ''}.',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade800, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D9488),
+                    ),
+                    icon: Icon(isObs ? Icons.insights : Icons.visibility, size: 18),
+                    label: Text(isObs ? 'View in Labs' : 'Open Document'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      if (isObs) {
+                        context.go('/labs');
+                      } else {
+                        context.go('/documents/${citation.id}');
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 

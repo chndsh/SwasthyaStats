@@ -2,12 +2,11 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError('Initialize sharedPreferencesProvider in main');
-});
+final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
 
-final localCacheServiceProvider = Provider<LocalCacheService>((ref) {
+final localCacheServiceProvider = Provider<LocalCacheService?>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
+  if (prefs == null) return null;
   return LocalCacheService(prefs);
 });
 

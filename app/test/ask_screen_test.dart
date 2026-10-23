@@ -38,6 +38,8 @@ void main() {
     expect(find.byType(TextField), findsOneWidget);
     expect(find.byIcon(Icons.send), findsOneWidget);
     expect(find.text('Ask anything about your health records'), findsOneWidget);
+    expect(find.text('What was my last HbA1c?'), findsOneWidget);
+    expect(find.text('Are any results abnormal?'), findsOneWidget);
   });
 
   testWidgets('submitting question shows user message and assistant reply with citation chip', (tester) async {
