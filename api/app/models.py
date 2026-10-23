@@ -18,31 +18,47 @@ from pgvector.sqlalchemy import Vector
 from app.db import Base
 
 
-class Patient(Base):
-    __tablename__ = "patients"
+class User(Base):
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False, default="Default Patient")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    display_name = Column(String(255), nullable=True)
+    password_hash = Column(String(255), nullable=False)
+    is_admin = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    documents = relationship("Document", back_populates="patient", cascade="all, delete-orphan")
-    observations = relationship("Observation", back_populates="patient", cascade="all, delete-orphan")
+    documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
+    observations = relationship("Observation", back_populates="user", cascade="all, delete-orphan")
+    chunks = relationship("Chunk", back_populates="user", cascade="all, delete-orphan")
+    settings = relationship("UserSetting", back_populates="user", cascade="all, delete-orphan")
+    llm_calls = relationship("LlmCall", back_populates="user")
 
 
-class AppSetting(Base):
-    __tablename__ = "app_settings"
+class RefreshTokenBlocklist(Base):
+    __tablename__ = "refresh_token_blocklist"
 
+    token_hash = Column(String(64), primary_key=True)
+    expires_at = Column(DateTime(timezone=True), index=True, nullable=False)
+
+
+class UserSetting(Base):
+    __tablename__ = "user_settings"
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     key = Column(String(100), primary_key=True)
     value = Column(JSONB, nullable=False)
     is_secret = Column(Boolean, default=False, nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="settings")
 
 
 class Document(Base):
     __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True, index=True)
-    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     filename = Column(String(255), nullable=False)
     sha256 = Column(String(64), nullable=False, index=True)
     status = Column(
@@ -54,12 +70,12 @@ class Document(Base):
     doc_type = Column(String(50), nullable=True, default="lab_report")
     doctor_name = Column(String(255), nullable=True)
     doc_date = Column(Date, nullable=True)
-    ocr_text = Column(Text, nullable=True)
+    ocr_text = Column(Text, nullable=True)  # Fernet encrypted ciphertext
     ocr_lines = Column(JSONB, nullable=True)  # list of {id, page, text, bbox, conf, row_id}
     page_count = Column(Integer, default=1, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
-    patient = relationship("Patient", back_populates="documents")
+    user = relationship("User", back_populates="documents")
     pages = relationship("DocumentPage", back_populates="document", cascade="all, delete-orphan")
     extractions = relationship("Extraction", back_populates="document", cascade="all, delete-orphan")
     observations = relationship("Observation", back_populates="document", cascade="all, delete-orphan")
@@ -89,7 +105,7 @@ class Extraction(Base):
     prompt_version = Column(String(50), nullable=False)
     structured_mode = Column(String(50), nullable=True)
     input_hash = Column(String(64), nullable=True, index=True)
-    raw_json = Column(JSONB, nullable=True)
+    raw_json = Column(Text, nullable=True)  # Encrypted JSON string
     field_confidence = Column(JSONB, nullable=True)
     reviewer_edits = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -101,12 +117,12 @@ class Observation(Base):
     __tablename__ = "observations"
 
     id = Column(Integer, primary_key=True, index=True)
-    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
     test_name = Column(String(255), nullable=False, index=True)
     canonical_test_id = Column(String(100), nullable=True, index=True)
     value_num = Column(Float, nullable=True)
-    value_text = Column(String(100), nullable=True)
+    value_text = Column(String(255), nullable=True)  # Encrypted string
     unit = Column(String(50), nullable=True)
     ref_low = Column(Float, nullable=True)
     ref_high = Column(Float, nullable=True)
@@ -116,7 +132,7 @@ class Observation(Base):
     source_line_ids = Column(ARRAY(Integer), nullable=True)
     status = Column(String(20), default="pending", nullable=False, index=True)  # pending | confirmed
 
-    patient = relationship("Patient", back_populates="observations")
+    user = relationship("User", back_populates="observations")
     document = relationship("Document", back_populates="observations")
 
 
@@ -124,12 +140,14 @@ class Chunk(Base):
     __tablename__ = "chunks"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
     text = Column(Text, nullable=False)
     embed_model = Column(String(100), nullable=False)
     embedding = Column(Vector(384), nullable=True)  # multilingual-e5-small (384)
     page = Column(Integer, default=1, nullable=False)
 
+    user = relationship("User", back_populates="chunks")
     document = relationship("Document", back_populates="chunks")
 
 
@@ -137,6 +155,7 @@ class LlmCall(Base):
     __tablename__ = "llm_calls"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     purpose = Column(String(50), nullable=False)  # extract | route | answer | probe
     model = Column(String(100), nullable=False)
     key_label = Column(String(100), nullable=True)
@@ -145,3 +164,5 @@ class LlmCall(Base):
     latency_ms = Column(Integer, default=0, nullable=False)
     status = Column(String(50), nullable=False)  # success | error | rate_limited
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    user = relationship("User", back_populates="llm_calls")
