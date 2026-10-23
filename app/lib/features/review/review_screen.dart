@@ -21,6 +21,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   int _loadedPageNo = -1;
   int _lastRequestedPage = -1;
   int? _filterPageNo;
+  bool _filterAbnormalOnly = false;
 
   Future<void> _loadPageImage(int pageNo) async {
     if (_loadedPageNo == pageNo && _imageBytes != null) return;
@@ -155,6 +156,138 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     );
   }
 
+  void _showAddTestDialog(BuildContext context, ReviewState state) {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController();
+    final valCtrl = TextEditingController();
+    final unitCtrl = TextEditingController();
+    final lowCtrl = TextEditingController();
+    final highCtrl = TextEditingController();
+    String? selectedFlag = 'normal';
+    int selectedPage = state.selectedPageNo;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Add Missed Test'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Test Name *'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Test name is required' : null,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: valCtrl,
+                    decoration: const InputDecoration(labelText: 'Value (numeric or text) *'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Value is required' : null,
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: unitCtrl,
+                    decoration: const InputDecoration(labelText: 'Unit (e.g. mg/dL, g/dL, %)'),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: lowCtrl,
+                          decoration: const InputDecoration(labelText: 'Ref Low'),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: highCtrl,
+                          decoration: const InputDecoration(labelText: 'Ref High'),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedFlag,
+                    decoration: const InputDecoration(labelText: 'Flag'),
+                    items: const [
+                      DropdownMenuItem(value: 'normal', child: Text('Normal')),
+                      DropdownMenuItem(value: 'high', child: Text('High')),
+                      DropdownMenuItem(value: 'low', child: Text('Low')),
+                      DropdownMenuItem(value: 'critical', child: Text('Critical')),
+                    ],
+                    onChanged: (val) => setDialogState(() => selectedFlag = val),
+                  ),
+                  if (state.pageCount > 1) ...[
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<int>(
+                      initialValue: selectedPage,
+                      decoration: const InputDecoration(labelText: 'Page Number'),
+                      items: [
+                        for (int p = 1; p <= state.pageCount; p++)
+                          DropdownMenuItem(value: p, child: Text('Page $p')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedPage = val);
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                final testName = nameCtrl.text.trim();
+                final valRaw = valCtrl.text.trim();
+                final valNum = double.tryParse(valRaw);
+                final valText = valNum == null ? valRaw : null;
+                final unit = unitCtrl.text.trim().isNotEmpty ? unitCtrl.text.trim() : null;
+                final refLow = double.tryParse(lowCtrl.text.trim());
+                final refHigh = double.tryParse(highCtrl.text.trim());
+
+                final payload = <String, dynamic>{
+                  'test_name': testName,
+                  'value_num': valNum,
+                  'value_text': valText,
+                  'unit': unit,
+                  'ref_low': refLow,
+                  'ref_high': refHigh,
+                  'flag': selectedFlag,
+                  'page_no': selectedPage,
+                };
+
+                Navigator.pop(ctx);
+                final ok = await ref
+                    .read(reviewControllerProvider(widget.documentId).notifier)
+                    .addObservation(payload);
+                if (context.mounted && ok) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Added $testName')),
+                  );
+                }
+              },
+              child: const Text('Add Test'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildImagePane(ReviewState state) {
     if (_loadedPageNo != state.selectedPageNo &&
         _lastRequestedPage != state.selectedPageNo &&
@@ -247,30 +380,34 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   Widget _buildObservationsList(ReviewState state) {
     final isConfirmed = state.status == 'confirmed';
-    final filteredObs = _filterPageNo == null
+    final abnormalCount = state.observations.where((o) => o.isAbnormal).length;
+    var filteredObs = _filterPageNo == null
         ? state.observations
         : state.observations.where((o) => o.pageNo == _filterPageNo).toList();
+    if (_filterAbnormalOnly) {
+      filteredObs = filteredObs.where((o) => o.isAbnormal).toList();
+    }
 
     return Column(
       children: [
-        if (state.pageCount > 1)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  ChoiceChip(
-                    label: Text('All (${state.observations.length})'),
-                    selected: _filterPageNo == null,
-                    onSelected: (selected) {
-                      if (selected) setState(() => _filterPageNo = null);
-                    },
-                  ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ChoiceChip(
+                  label: Text('All (${state.observations.length})'),
+                  selected: _filterPageNo == null,
+                  onSelected: (selected) {
+                    if (selected) setState(() => _filterPageNo = null);
+                  },
+                ),
+                if (state.pageCount > 1)
                   for (int p = 1; p <= state.pageCount; p++) ...[
                     const SizedBox(width: 6),
                     ChoiceChip(
@@ -287,10 +424,32 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                       },
                     ),
                   ],
+                const SizedBox(width: 8),
+                FilterChip(
+                  avatar: Icon(
+                    Icons.warning_amber_rounded,
+                    size: 14,
+                    color: _filterAbnormalOnly ? Colors.deepOrange.shade900 : Colors.deepOrange,
+                  ),
+                  label: Text('Abnormal ($abnormalCount)'),
+                  selected: _filterAbnormalOnly,
+                  selectedColor: Colors.deepOrange.shade100,
+                  onSelected: (selected) {
+                    setState(() => _filterAbnormalOnly = selected);
+                  },
+                ),
+                if (!isConfirmed) ...[
+                  const SizedBox(width: 8),
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 16),
+                    label: const Text('Add test'),
+                    onPressed: () => _showAddTestDialog(context, state),
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
+        ),
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(8),

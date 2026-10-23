@@ -26,10 +26,18 @@ class ObservationModel {
     this.flag,
     this.collectedAt,
     required this.pageNo,
-    required this.sourceLineIds,
+    this.sourceLineIds = const [],
     required this.status,
     this.confidence,
   });
+
+  bool get isAbnormal {
+    final f = (flag ?? '').toLowerCase();
+    if (f == 'high' || f == 'low' || f == 'critical') return true;
+    if (valueNum != null && refLow != null && valueNum! < refLow!) return true;
+    if (valueNum != null && refHigh != null && valueNum! > refHigh!) return true;
+    return false;
+  }
 
   factory ObservationModel.fromJson(Map<String, dynamic> json) {
     return ObservationModel(

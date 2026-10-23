@@ -93,6 +93,28 @@ class ReviewController extends FamilyAsyncNotifier<ReviewState, int> {
     state = state.whenData((s) => s.copyWith(selectedPageNo: pageNo));
   }
 
+  Future<bool> addObservation(Map<String, dynamic> data) async {
+    final client = ref.read(apiClientProvider);
+    final current = state.value;
+    if (current == null) return false;
+
+    try {
+      final response = await client.dio.post(
+        '/documents/${current.documentId}/observations',
+        data: data,
+      );
+      final created = ObservationModel.fromJson(response.data as Map<String, dynamic>);
+      state = state.whenData((s) => s.copyWith(
+            observations: [...s.observations, created],
+            selectedObservationId: created.id,
+            selectedPageNo: created.pageNo,
+          ));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> updateObservation(int obsId, Map<String, dynamic> patch) async {
     final client = ref.read(apiClientProvider);
     final response = await client.dio.patch('/observations/$obsId', data: patch);

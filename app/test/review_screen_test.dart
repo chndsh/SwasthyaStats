@@ -34,6 +34,32 @@ class FakeReviewController extends ReviewController {
 }
 
 void main() {
+  test('ObservationModel calculates isAbnormal correctly', () {
+    final highObs = ObservationModel(
+      id: 1,
+      testName: 'Glucose',
+      valueNum: 160.0,
+      refLow: 70.0,
+      refHigh: 99.0,
+      flag: 'high',
+      pageNo: 1,
+      status: 'pending',
+    );
+    expect(highObs.isAbnormal, true);
+
+    final normalObs = ObservationModel(
+      id: 2,
+      testName: 'Glucose',
+      valueNum: 85.0,
+      refLow: 70.0,
+      refHigh: 99.0,
+      flag: 'normal',
+      pageNo: 1,
+      status: 'pending',
+    );
+    expect(normalObs.isAbnormal, false);
+  });
+
   testWidgets('ReviewScreen shows observation rows and Confirm all button', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
