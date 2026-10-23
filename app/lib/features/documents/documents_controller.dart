@@ -45,18 +45,16 @@ class DocumentsController extends AsyncNotifier<List<DocumentItem>> {
         d.status == 'ocr' ||
         d.status == 'extracting');
 
-    if (hasProcessing) {
-      _pollingTimer = Timer(const Duration(seconds: 3), () async {
-        try {
-          final updated = await _fetchDocuments();
-          state = AsyncData(updated);
-          _checkPolling(updated);
-        } catch (_) {
-          // Retry on next cycle
-          _checkPolling(docs);
-        }
-      });
-    }
+    final pollInterval = hasProcessing ? const Duration(seconds: 3) : const Duration(seconds: 10);
+    _pollingTimer = Timer(pollInterval, () async {
+      try {
+        final updated = await _fetchDocuments();
+        state = AsyncData(updated);
+        _checkPolling(updated);
+      } catch (_) {
+        _checkPolling(docs);
+      }
+    });
   }
 
   Future<void> refresh() async {

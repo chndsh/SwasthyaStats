@@ -35,6 +35,19 @@ class FakeDocumentsController extends DocumentsController {
 }
 
 void main() {
+  test('DocumentItem parses doctorName from JSON', () {
+    final doc = DocumentItem.fromJson({
+      'id': 1,
+      'filename': 'report.pdf',
+      'status': 'confirmed',
+      'doctor_name': 'Dr. Sharma',
+      'created_at': '2026-10-23T00:00:00Z',
+      'page_count': 1,
+      'patient_id': 1,
+    });
+    expect(doc.doctorName, 'Dr. Sharma');
+  });
+
   testWidgets('DocumentsScreen displays documents and status chips', (tester) async {
     await tester.pumpWidget(
       ProviderScope(

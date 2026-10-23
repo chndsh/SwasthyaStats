@@ -25,6 +25,7 @@ class DocumentItem {
   final int id;
   final String filename;
   final String status;
+  final String? doctorName;
   final int pageCount;
   final DateTime createdAt;
   final List<DocumentPageItem> pages;
@@ -33,6 +34,7 @@ class DocumentItem {
     required this.id,
     required this.filename,
     required this.status,
+    this.doctorName,
     required this.pageCount,
     required this.createdAt,
     this.pages = const [],
@@ -48,6 +50,7 @@ class DocumentItem {
       id: json['id'] as int,
       filename: json['filename'] as String? ?? 'Untitled',
       status: json['status'] as String? ?? 'queued',
+      doctorName: json['doctor_name'] as String?,
       pageCount: json['page_count'] as int? ?? 1,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()

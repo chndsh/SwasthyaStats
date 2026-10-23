@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'documents_controller.dart';
+import 'document_model.dart';
 import '../../core/api_client.dart';
 import '../../core/connectivity.dart';
 
@@ -20,6 +21,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   bool _isUploading = false;
   bool _isSelectMode = false;
   final Set<int> _selected = {};
+  String _sortBy = 'date_desc';
 
   Color _getStatusColor(String status) {
     switch (status) {
@@ -295,6 +297,18 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           : AppBar(
               title: const Text('Documents'),
               actions: [
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.sort),
+                  tooltip: 'Sort documents',
+                  initialValue: _sortBy,
+                  onSelected: (val) => setState(() => _sortBy = val),
+                  itemBuilder: (ctx) => const [
+                    PopupMenuItem(value: 'date_desc', child: Text('Date (Newest)')),
+                    PopupMenuItem(value: 'date_asc', child: Text('Date (Oldest)')),
+                    PopupMenuItem(value: 'doctor_asc', child: Text('Doctor (A–Z)')),
+                    PopupMenuItem(value: 'doctor_desc', child: Text('Doctor (Z–A)')),
+                  ],
+                ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   tooltip: 'Refresh',
@@ -379,14 +393,35 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             );
           }
 
+          final sortedDocs = List<DocumentItem>.from(docs);
+          if (_sortBy == 'date_asc') {
+            sortedDocs.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          } else if (_sortBy == 'doctor_asc') {
+            sortedDocs.sort((a, b) {
+              if (a.doctorName == null && b.doctorName == null) return 0;
+              if (a.doctorName == null) return 1;
+              if (b.doctorName == null) return -1;
+              return a.doctorName!.toLowerCase().compareTo(b.doctorName!.toLowerCase());
+            });
+          } else if (_sortBy == 'doctor_desc') {
+            sortedDocs.sort((a, b) {
+              if (a.doctorName == null && b.doctorName == null) return 0;
+              if (a.doctorName == null) return 1;
+              if (b.doctorName == null) return -1;
+              return b.doctorName!.toLowerCase().compareTo(a.doctorName!.toLowerCase());
+            });
+          } else {
+            sortedDocs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          }
+
           return RefreshIndicator(
             onRefresh: () => ref.read(documentsControllerProvider.notifier).refresh(),
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              itemCount: docs.length,
+              itemCount: sortedDocs.length,
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, index) {
-                final doc = docs[index];
+                final doc = sortedDocs[index];
                 final statusColor = _getStatusColor(doc.status);
                 final isSelected = _selected.contains(doc.id);
 
@@ -402,9 +437,32 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                           child: Icon(Icons.description, color: statusColor),
                         ),
                   title: Text(doc.filename, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(
-                    '${doc.pageCount} page${doc.pageCount > 1 ? 's' : ''} • ${_formatDate(doc.createdAt)}',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${doc.pageCount} page${doc.pageCount > 1 ? 's' : ''} • ${_formatDate(doc.createdAt)}',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                      if (doc.doctorName != null && doc.doctorName!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.person_outline, size: 14, color: Colors.teal.shade700),
+                            const SizedBox(width: 4),
+                            Text(
+                              doc.doctorName!,
+                              style: TextStyle(
+                                color: Colors.teal.shade800,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
                   selected: isSelected,
                   selectedTileColor: Colors.red.withValues(alpha: 0.06),
