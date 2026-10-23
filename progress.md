@@ -483,3 +483,39 @@ Implement Week 4 deliverables according to `prototype-architecture.md`:
 - Verified `main` branch is clean with 0 uncommitted changes and no native port references.
 
 
+
+---
+
+## Task: PWA Enhancements — Offline Cache, Doctor Sort, Citations, Quick-Add
+
+- **Date:** 2026-10-23
+- **Status:** ✅ Completed (7 commits)
+
+### Features Delivered
+
+| # | Feature | Commit |
+|---|---------|--------|
+| 1 | Backend: doctor name extraction + document sort by doctor | `feat(api): extract doctor name and support document sorting by doctor` |
+| 2 | Backend: manual observation endpoint + summary delta computation | `feat(api): add manual observation endpoint and compute summary deltas` |
+| 3 | Flutter: LocalCacheService + offline banner (documents & labs) | `feat(app): add local cache service and offline results display` |
+| 4 | Flutter: document auto-refresh (10s/3s polling) + doctor sort chip | `feat(app): add document auto-refresh, doctor name extraction display and sorting` |
+| 5 | Flutter: review screen abnormal filter + inline quick-add test dialog | `feat(app): add abnormal filter and inline quick-add test dialog in review screen` |
+| 6 | Flutter: labs abnormal filter + delta arrows (↑/↓) | `feat(app): add abnormal quick filter and summary delta indicators in labs` |
+| 7 | Flutter: ask screen — starter chips, citation bottom sheets, clear history | `feat(app): add starter chips, citation bottom sheet, and clear chat history` |
+
+### Decisions
+
+- `sharedPreferencesProvider` / `localCacheServiceProvider` are nullable so tests that don't override them get `null` (no throw)
+- All cache consumers use `cache?.method()` null-safe calls
+- `DocumentsController` polls every 10 s (idle) / 3 s (in-progress); test overrides with `_EmptyDocumentsController` to avoid pending timer
+- Android port entries removed/purged from docs
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| Backend `pytest tests/` | **60 passed**, 6 warnings |
+| `flutter analyze` | **0 issues** |
+| `flutter test` | **16/16 passed** |
+| `flutter build web --wasm` | **✓ Built build/web** |
+
