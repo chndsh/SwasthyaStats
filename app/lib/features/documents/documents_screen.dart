@@ -239,8 +239,9 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   @override
   Widget build(BuildContext context) {
     final isOffline = ref.watch(isOfflineProvider);
+    final docsAsync = ref.watch(documentsControllerProvider);
 
-    if (isOffline) {
+    if (isOffline && docsAsync.hasError && (docsAsync.value == null || docsAsync.value!.isEmpty)) {
       return Scaffold(
         appBar: AppBar(title: const Text('Documents')),
         body: Center(
@@ -257,7 +258,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Connect to the internet to load and sync documents.',
+                  'No cached documents available offline.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey),
                 ),
@@ -272,8 +273,6 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
         ),
       );
     }
-
-    final docsAsync = ref.watch(documentsControllerProvider);
 
 
 
@@ -312,7 +311,32 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                   ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.add, color: Colors.white),
             ),
-      body: docsAsync.when(
+      body: Column(
+        children: [
+          if (isOffline)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.amber.shade100,
+              child: Row(
+                children: [
+                  Icon(Icons.wifi_off, size: 16, color: Colors.amber.shade900),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Offline mode — showing cached documents',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.amber.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: docsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
           child: Padding(
@@ -458,6 +482,9 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             ),
           );
         },
+      ),
+          ),
+        ],
       ),
     );
   }

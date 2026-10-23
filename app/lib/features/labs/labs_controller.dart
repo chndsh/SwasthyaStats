@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
+import '../../core/local_cache.dart';
 import 'lab_model.dart';
 
 const Set<String> kDefaultFavourites = {
@@ -19,11 +20,24 @@ class LabsController extends AsyncNotifier<List<LabTestSummary>> {
 
   Future<List<LabTestSummary>> _fetchTests() async {
     final client = ref.read(apiClientProvider);
-    final response = await client.dio.get('/tests');
-    final data = response.data as List<dynamic>;
-    return data
-        .map((item) => LabTestSummary.fromJson(item as Map<String, dynamic>))
-        .toList();
+    final cache = ref.read(localCacheServiceProvider);
+    try {
+      final response = await client.dio.get('/tests');
+      final data = response.data as List<dynamic>;
+      final rawMaps = data.map((item) => item as Map<String, dynamic>).toList();
+      await cache.cacheLabs(rawMaps);
+      return rawMaps
+          .map((item) => LabTestSummary.fromJson(item))
+          .toList();
+    } catch (_) {
+      final cached = await cache.getCachedLabs();
+      if (cached.isNotEmpty) {
+        return cached
+            .map((item) => LabTestSummary.fromJson(item))
+            .toList();
+      }
+      rethrow;
+    }
   }
 
   Future<void> refresh() async {

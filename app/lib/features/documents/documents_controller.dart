@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
+import '../../core/local_cache.dart';
 import 'document_model.dart';
 
 class DocumentsController extends AsyncNotifier<List<DocumentItem>> {
@@ -20,9 +21,20 @@ class DocumentsController extends AsyncNotifier<List<DocumentItem>> {
 
   Future<List<DocumentItem>> _fetchDocuments() async {
     final client = ref.read(apiClientProvider);
-    final response = await client.dio.get('/documents');
-    final data = response.data as List<dynamic>;
-    return data.map((d) => DocumentItem.fromJson(d as Map<String, dynamic>)).toList();
+    final cache = ref.read(localCacheServiceProvider);
+    try {
+      final response = await client.dio.get('/documents');
+      final data = response.data as List<dynamic>;
+      final rawMaps = data.map((d) => d as Map<String, dynamic>).toList();
+      await cache.cacheDocuments(rawMaps);
+      return rawMaps.map((d) => DocumentItem.fromJson(d)).toList();
+    } catch (_) {
+      final cached = await cache.getCachedDocuments();
+      if (cached.isNotEmpty) {
+        return cached.map((d) => DocumentItem.fromJson(d)).toList();
+      }
+      rethrow;
+    }
   }
 
   void _checkPolling(List<DocumentItem> docs) {

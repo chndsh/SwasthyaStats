@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/connectivity.dart';
 import 'labs_controller.dart';
 import 'lab_model.dart';
 
@@ -39,6 +40,7 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
   Widget build(BuildContext context) {
     final testsAsync = ref.watch(labsControllerProvider);
     final favourites = ref.watch(labFavouritesProvider);
+    final isOffline = ref.watch(isOfflineProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -51,7 +53,32 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
           ),
         ],
       ),
-      body: testsAsync.when(
+      body: Column(
+        children: [
+          if (isOffline)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.amber.shade100,
+              child: Row(
+                children: [
+                  Icon(Icons.wifi_off, size: 16, color: Colors.amber.shade900),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Offline mode — showing cached lab results',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.amber.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: testsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
           child: Column(
@@ -239,6 +266,9 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
             ),
           );
         },
+      ),
+          ),
+        ],
       ),
     );
   }
