@@ -519,3 +519,51 @@ Implement Week 4 deliverables according to `prototype-architecture.md`:
 | `flutter test` | **16/16 passed** |
 | `flutter build web --wasm` | **✓ Built build/web** |
 
+
+---
+
+## Design Session: Multi-User Authentication
+
+- **Date:** 2026-10-23
+- **Branch:** `feat/auth-multi-user`
+- **Status:** Design complete, awaiting plan
+
+### Brainstorming Log (honest record of decisions made)
+
+**What was asked:** Add user login with Google authentication for confidentiality and integrity.
+
+**What was decided and why:**
+
+1. **Dropped Google OAuth** — Google OAuth was the initial proposal, but the project's self-hosting goal means any external identity provider creates a hard dependency. If Google's OAuth endpoint is unreachable (no internet, Google outage), users can't log in. Argon2id + JWT is entirely self-contained and equally secure for this use case.
+
+2. **Multi-user, not single-user** — The host runs the instance for friends and family. Each person gets their own account with strictly isolated data.
+
+3. **Host cannot read guest data at rest** — This was the core privacy requirement surfaced during brainstorming. The design achieves this through per-user Fernet field encryption (derived from `SERVER_SECRET + user_id`). A database dump is unreadable without `SERVER_SECRET`.
+
+4. **Honest limitations documented** — The following are explicitly NOT protected and are disclosed in the design document:
+   - OCR and LLM processing window: host's server reads plaintext documents in memory during processing. Unavoidable with server-side AI.
+   - `chunks.text` (RAG source text): stored plaintext because semantic search requires it.
+   - A host with both DB access AND `SERVER_SECRET` (env var) can decrypt stored data.
+
+5. **Per-user LLM API keys** — Each guest provides their own LLM API key. The host never pays for guest AI usage, and guest keys are encrypted with the guest's own derived key (host cannot see them).
+
+6. **Self-hostable, zero internet required** — The only external call in the previous Google OAuth design was the identity verification at login. By switching to username/password + JWT, even that is eliminated. With Ollama as LLM provider, the system runs 100% offline.
+
+7. **Admin-only user creation** — No self-registration. The host creates accounts for specific people. This keeps the guest list under the host's control.
+
+8. **Clean slate migration** — Existing data is dropped. The current `Patient` model (single-tenant stub) is replaced by a proper `User` model.
+
+### Design Document
+
+`docs/superpowers/specs/2026-10-23-auth-multi-user-design.md`
+
+### Key Security Properties
+
+| Property | Achieved? |
+|---|---|
+| No external dependencies for auth | ✅ |
+| Host cannot read guest data from DB dump | ✅ |
+| Cross-user API access impossible | ✅ |
+| Guest LLM keys hidden from host | ✅ |
+| Host cannot read data during processing | ❌ (disclosed, unavoidable) |
+| Chunk text hidden from host | ❌ (disclosed, needed for RAG) |
