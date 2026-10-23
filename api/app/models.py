@@ -166,3 +166,9 @@ class LlmCall(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     user = relationship("User", back_populates="llm_calls")
+
+
+# Backward compatibility aliases during transition
+AppSetting = UserSetting
+Patient = User
+

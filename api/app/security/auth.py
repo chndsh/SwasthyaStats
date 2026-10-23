@@ -1,5 +1,6 @@
 from fastapi import Header, HTTPException, status
 from app.config import get_settings
+from app.routers.auth import get_current_user, get_admin_user, bootstrap_admin
 
 
 def verify_api_key(x_api_key: str = Header(None, alias="X-API-Key")):
