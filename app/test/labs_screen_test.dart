@@ -29,6 +29,22 @@ class FakeFavouritesNotifier extends LabFavouritesNotifier {
 }
 
 void main() {
+  test('LabTestSummary parses delta fields and isAbnormal', () {
+    final summary = LabTestSummary.fromJson({
+      'test_name': 'Hemoglobin',
+      'count': 3,
+      'latest_value': 14.5,
+      'previous_value': 13.5,
+      'delta_value': 1.0,
+      'delta_percent': 7.4,
+      'is_abnormal': false,
+    });
+    expect(summary.deltaValue, 1.0);
+    expect(summary.previousValue, 13.5);
+    expect(summary.deltaPercent, 7.4);
+    expect(summary.isAbnormal, false);
+  });
+
   testWidgets('LabsScreen shows test list and favourite section', (tester) async {
     final sampleTests = [
       LabTestSummary(

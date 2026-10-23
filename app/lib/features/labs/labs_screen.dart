@@ -15,6 +15,7 @@ class LabsScreen extends ConsumerStatefulWidget {
 class _LabsScreenState extends ConsumerState<LabsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _filter = '';
+  bool _filterAbnormalOnly = false;
 
   @override
   void dispose() {
@@ -121,13 +122,18 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
             );
           }
 
-          final filteredTests = _filter.isEmpty
-              ? allTests
-              : allTests
-                  .where((t) => t.testName.toLowerCase().contains(_filter.toLowerCase()))
-                  .toList();
+          final filteredTests = allTests.where((t) {
+            if (_filterAbnormalOnly && !t.isAbnormal) return false;
+            if (_filter.isNotEmpty && !t.testName.toLowerCase().contains(_filter.toLowerCase())) {
+              return false;
+            }
+            return true;
+          }).toList();
 
-          final favTests = allTests.where((t) => favourites.contains(t.testName)).toList();
+          final favTests = allTests.where((t) {
+            if (_filterAbnormalOnly && !t.isAbnormal) return false;
+            return favourites.contains(t.testName);
+          }).toList();
 
           return RefreshIndicator(
             onRefresh: () => ref.read(labsControllerProvider.notifier).refresh(),
@@ -153,6 +159,30 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   onChanged: (val) => setState(() => _filter = val),
+                ),
+                const SizedBox(height: 12),
+
+                // Filter chips
+                Row(
+                  children: [
+                    FilterChip(
+                      label: Text('All (${allTests.length})'),
+                      selected: !_filterAbnormalOnly,
+                      onSelected: (_) => setState(() => _filterAbnormalOnly = false),
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      avatar: Icon(
+                        Icons.warning_amber_rounded,
+                        size: 14,
+                        color: _filterAbnormalOnly ? Colors.deepOrange.shade900 : Colors.deepOrange,
+                      ),
+                      label: Text('Abnormal (${allTests.where((t) => t.isAbnormal).length})'),
+                      selected: _filterAbnormalOnly,
+                      selectedColor: Colors.deepOrange.shade100,
+                      onSelected: (val) => setState(() => _filterAbnormalOnly = val),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
@@ -213,9 +243,11 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         subtitle: Text(
-                          test.latestDate != null
-                              ? 'Latest: ${test.latestDate} (${test.count} record${test.count > 1 ? 's' : ''})'
-                              : '${test.count} record${test.count > 1 ? 's' : ''}',
+                          test.previousValue != null
+                              ? 'Latest: ${test.latestDate ?? ''} • Prev: ${test.previousValue}'
+                              : (test.latestDate != null
+                                  ? 'Latest: ${test.latestDate} (${test.count} record${test.count > 1 ? 's' : ''})'
+                                  : '${test.count} record${test.count > 1 ? 's' : ''}'),
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -225,9 +257,42 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  Text(
-                                    '${test.latestValue} ${test.latestUnit ?? ''}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '${test.latestValue} ${test.latestUnit ?? ''}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                      ),
+                                      if (test.deltaValue != null) ...[
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          test.deltaValue! > 0
+                                              ? Icons.arrow_upward
+                                              : test.deltaValue! < 0
+                                                  ? Icons.arrow_downward
+                                                  : Icons.horizontal_rule,
+                                          size: 11,
+                                          color: test.deltaValue! > 0
+                                              ? Colors.blue.shade700
+                                              : test.deltaValue! < 0
+                                                  ? Colors.deepOrange.shade700
+                                                  : Colors.grey,
+                                        ),
+                                        Text(
+                                          '${test.deltaValue! > 0 ? '+' : ''}${test.deltaValue!.toStringAsFixed(1)}',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: test.deltaValue! > 0
+                                                ? Colors.blue.shade700
+                                                : test.deltaValue! < 0
+                                                    ? Colors.deepOrange.shade700
+                                                    : Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                   if (test.latestFlag != null)
                                     Text(
@@ -321,9 +386,41 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
             ),
             const SizedBox(height: 6),
             if (test.latestValue != null) ...[
-              Text(
-                '${test.latestValue} ${test.latestUnit ?? ''}',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  Text(
+                    '${test.latestValue} ${test.latestUnit ?? ''}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  if (test.deltaValue != null) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      test.deltaValue! > 0
+                          ? Icons.arrow_upward
+                          : test.deltaValue! < 0
+                              ? Icons.arrow_downward
+                              : Icons.horizontal_rule,
+                      size: 11,
+                      color: test.deltaValue! > 0
+                          ? Colors.blue.shade700
+                          : test.deltaValue! < 0
+                              ? Colors.deepOrange.shade700
+                              : Colors.grey,
+                    ),
+                    Text(
+                      '${test.deltaValue! > 0 ? '+' : ''}${test.deltaValue!.toStringAsFixed(1)}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: test.deltaValue! > 0
+                            ? Colors.blue.shade700
+                            : test.deltaValue! < 0
+                                ? Colors.deepOrange.shade700
+                                : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 4),
               if (test.refLow != null && test.refHigh != null)

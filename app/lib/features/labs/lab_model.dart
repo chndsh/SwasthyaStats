@@ -8,6 +8,10 @@ class LabTestSummary {
   final String? latestDate;
   final double? refLow;
   final double? refHigh;
+  final double? previousValue;
+  final double? deltaValue;
+  final double? deltaPercent;
+  final bool isAbnormal;
 
   const LabTestSummary({
     required this.testName,
@@ -19,6 +23,10 @@ class LabTestSummary {
     this.latestDate,
     this.refLow,
     this.refHigh,
+    this.previousValue,
+    this.deltaValue,
+    this.deltaPercent,
+    this.isAbnormal = false,
   });
 
   factory LabTestSummary.fromJson(Map<String, dynamic> json) {
@@ -32,6 +40,10 @@ class LabTestSummary {
       latestDate: json['latest_date'] as String?,
       refLow: (json['ref_low'] as num?)?.toDouble(),
       refHigh: (json['ref_high'] as num?)?.toDouble(),
+      previousValue: (json['previous_value'] as num?)?.toDouble(),
+      deltaValue: (json['delta_value'] as num?)?.toDouble(),
+      deltaPercent: (json['delta_percent'] as num?)?.toDouble(),
+      isAbnormal: json['is_abnormal'] as bool? ?? false,
     );
   }
 }
