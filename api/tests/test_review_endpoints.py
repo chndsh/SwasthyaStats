@@ -114,3 +114,27 @@ def test_patch_observation_blocked_after_confirm(test_setup):
         json={"value_num": 99.0},
     )
     assert r.status_code == 409
+
+
+def test_manual_add_observation_to_document(test_setup):
+    doc_id, _ = test_setup
+    payload = {
+        "test_name": "Serum Ferritin",
+        "value_num": 150.0,
+        "unit": "ng/mL",
+        "ref_low": 30.0,
+        "ref_high": 400.0,
+        "flag": "normal",
+        "page_no": 1,
+    }
+    r = client.post(
+        f"/api/v1/documents/{doc_id}/observations",
+        headers=HEADERS,
+        json=payload,
+    )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["test_name"] == "Serum Ferritin"
+    assert data["value_num"] == 150.0
+    assert data["status"] == "pending"
+

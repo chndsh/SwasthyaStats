@@ -6,8 +6,9 @@ from app.db import get_db
 from app.security.auth import verify_api_key
 import shutil
 from app.models import Document, DocumentPage, Extraction, Observation, Chunk
-from app.schemas import DocumentRead, DocumentUploadResponse, ExtractionRead, ObservationRead
-from app.services.documents import validate_and_create_document, process_document_background
+from app.schemas import DocumentRead, DocumentUploadResponse, ExtractionRead, ObservationRead, ObservationCreate
+from app.services.documents import validate_and_create_document, process_document_background, get_lab_dictionary
+from app.pipeline.normalize import _find_canonical_test_id
 
 router = APIRouter(prefix="/api/v1/documents", tags=["Documents"])
 
@@ -137,6 +138,82 @@ def get_document_extraction(document_id: int, db: Session = Depends(get_db)):
         observations=obs_list,
         ocr_lines=doc.ocr_lines or [],
     )
+
+
+@router.post(
+    "/{document_id}/observations",
+    response_model=ObservationRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_api_key)],
+)
+def add_manual_observation(
+    document_id: int,
+    obs_in: ObservationCreate,
+    db: Session = Depends(get_db),
+):
+    """Manually adds a missed observation to a document before confirmation."""
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    if doc.status == "confirmed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot add observations to a confirmed document",
+        )
+
+    lab_dict = get_lab_dictionary()
+    canon_id = _find_canonical_test_id(obs_in.test_name, lab_dict)
+
+    obs = Observation(
+        patient_id=doc.patient_id,
+        document_id=doc.id,
+        test_name=obs_in.test_name,
+        canonical_test_id=canon_id,
+        value_num=obs_in.value_num,
+        value_text=obs_in.value_text,
+        unit=obs_in.unit,
+        ref_low=obs_in.ref_low,
+        ref_high=obs_in.ref_high,
+        flag=obs_in.flag,
+        page_no=obs_in.page_no,
+        collected_at=obs_in.collected_at or doc.doc_date,
+        source_line_ids=[],
+        status="pending",
+    )
+    db.add(obs)
+    db.commit()
+    db.refresh(obs)
+
+    # Record confidence as 1.0 (human verified/entered) in extraction
+    ext = (
+        db.query(Extraction)
+        .filter(Extraction.document_id == document_id)
+        .order_by(Extraction.created_at.desc())
+        .first()
+    )
+    if ext:
+        field_conf = dict(ext.field_confidence or {})
+        field_conf[str(obs.id)] = 1.0
+        ext.field_confidence = field_conf
+        db.commit()
+
+    return ObservationRead(
+        id=obs.id,
+        test_name=obs.test_name,
+        canonical_test_id=obs.canonical_test_id,
+        value_num=obs.value_num,
+        value_text=obs.value_text,
+        unit=obs.unit,
+        ref_low=obs.ref_low,
+        ref_high=obs.ref_high,
+        flag=obs.flag,
+        collected_at=obs.collected_at,
+        page_no=obs.page_no,
+        source_line_ids=obs.source_line_ids,
+        status=obs.status,
+        confidence=1.0,
+    )
+
 
 
 @router.post(

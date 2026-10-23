@@ -55,17 +55,31 @@ def list_available_tests(db: Session = Depends(get_db)):
                 "latest_date": obs.collected_at,
                 "ref_low": obs.ref_low,
                 "ref_high": obs.ref_high,
+                "previous_value": None,
+                "delta_value": None,
+                "delta_percent": None,
+                "is_abnormal": False,
             }
         else:
             tests_map[key]["count"] += 1
-            # If current recorded latest_date is None but this observation has one, update latest details
-            if tests_map[key]["latest_date"] is None and obs.collected_at is not None:
-                tests_map[key]["latest_value"] = obs.value_num
-                tests_map[key]["latest_unit"] = obs.unit
-                tests_map[key]["latest_flag"] = obs.flag
-                tests_map[key]["latest_date"] = obs.collected_at
-                tests_map[key]["ref_low"] = obs.ref_low
-                tests_map[key]["ref_high"] = obs.ref_high
+            if tests_map[key]["previous_value"] is None and obs.value_num is not None:
+                tests_map[key]["previous_value"] = obs.value_num
+                if tests_map[key]["latest_value"] is not None:
+                    d_val = round(tests_map[key]["latest_value"] - obs.value_num, 2)
+                    tests_map[key]["delta_value"] = d_val
+                    if obs.value_num != 0:
+                        tests_map[key]["delta_percent"] = round((d_val / obs.value_num) * 100, 1)
+
+    for item in tests_map.values():
+        flag = (item["latest_flag"] or "").lower()
+        val = item["latest_value"]
+        r_low = item["ref_low"]
+        r_high = item["ref_high"]
+        item["is_abnormal"] = bool(
+            flag in ["high", "low", "critical"]
+            or (r_low is not None and val is not None and val < r_low)
+            or (r_high is not None and val is not None and val > r_high)
+        )
 
     result = [LabTestSummary(**data) for data in tests_map.values()]
     result.sort(key=lambda t: t.test_name.lower())

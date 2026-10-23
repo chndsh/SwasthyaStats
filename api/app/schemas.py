@@ -155,6 +155,18 @@ class ObservationRead(BaseModel):
     confidence: Optional[float] = None
 
 
+class ObservationCreate(BaseModel):
+    test_name: str
+    value_num: Optional[float] = None
+    value_text: Optional[str] = None
+    unit: Optional[str] = None
+    ref_low: Optional[float] = None
+    ref_high: Optional[float] = None
+    flag: Optional[Literal["low", "normal", "high", "critical"]] = None
+    page_no: int = 1
+    collected_at: Optional[date] = None
+
+
 class ObservationPatch(BaseModel):
     test_name: Optional[str] = None
     value_num: Optional[float] = None
@@ -186,6 +198,11 @@ class LabTestSummary(BaseModel):
     latest_date: Optional[date] = None
     ref_low: Optional[float] = None
     ref_high: Optional[float] = None
+    previous_value: Optional[float] = None
+    delta_value: Optional[float] = None
+    delta_percent: Optional[float] = None
+    is_abnormal: bool = False
+
 
 
 class ChartPoint(BaseModel):

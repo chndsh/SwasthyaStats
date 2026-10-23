@@ -124,6 +124,9 @@ def test_list_tests_with_confirmed_obs(chart_test_data):
     assert hba1c["latest_value"] == 6.8
     assert hba1c["latest_unit"] == "%"
     assert hba1c["latest_date"] == "2026-06-15"
+    assert hba1c["previous_value"] == 7.1
+    assert hba1c["delta_value"] is not None
+    assert hba1c["is_abnormal"] is True
 
 
 def test_charts_lab_no_data():
