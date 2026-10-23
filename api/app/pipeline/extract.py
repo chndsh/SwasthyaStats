@@ -27,6 +27,7 @@ class LabObservationRaw(BaseModel):
 
 class LabReportRaw(BaseModel):
     lab_name: Optional[str] = None
+    doctor_name: Optional[str] = None
     report_date: Optional[date] = None
     observations: List[LabObservationRaw] = Field(default_factory=list)
 
@@ -34,6 +35,7 @@ class LabReportRaw(BaseModel):
 EXTRACTION_SYSTEM_PROMPT = """You extract lab test results from OCR text of a medical lab report.
 Return strictly valid JSON matching the schema.
 Extract ALL genuine medical lab test results and observations present in the text, do not omit any.
+If present in the report headers or metadata, extract the referring doctor or physician name into doctor_name, and the laboratory name into lab_name.
 Each observation must reference the exact line_ids it was extracted from (found in [Line IDs: ...] prefixes or available line IDs).
 CRITICAL RULES:
 - NEVER extract units, column headers, reference range boundaries, or methods as test names (e.g. 'cumm', 'cells', 'HPF', 'Method', 'Unit', 'Ref. Range', 'Turbidimetric' are NOT tests).

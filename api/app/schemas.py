@@ -98,6 +98,7 @@ class LabObservationSchema(BaseModel):
 
 class LabReportSchema(BaseModel):
     lab_name: Optional[str] = None
+    doctor_name: Optional[str] = None
     report_date: Optional[date] = None
     observations: List[LabObservationSchema] = []
 
@@ -120,6 +121,7 @@ class DocumentRead(BaseModel):
     patient_id: int
     filename: str
     status: str
+    doctor_name: Optional[str] = None
     page_count: int
     created_at: datetime
     pages: List[DocumentPageRead] = []

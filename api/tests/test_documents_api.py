@@ -36,6 +36,10 @@ def test_upload_document_creates_queued_doc_and_streams_page():
     docs = list_resp.json()
     assert any(d["id"] == doc_id for d in docs)
 
+    # 4. List documents sort by doctor
+    sort_resp = client.get("/api/v1/documents?sort_by=doctor_asc", headers=AUTH_HEADER)
+    assert sort_resp.status_code == 200
+
 
 def test_upload_rejects_empty_file():
     response = client.post(

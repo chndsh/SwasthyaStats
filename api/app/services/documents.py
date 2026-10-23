@@ -261,6 +261,7 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
 
     total_pages = doc.page_count or 1
     last_report_date = None
+    last_doctor_name = None
     confidence_map = {}
 
     for page_no in range(1, total_pages + 1):
@@ -354,6 +355,8 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
 
         if report.report_date:
             last_report_date = report.report_date
+        if report.doctor_name:
+            last_doctor_name = report.doctor_name
 
         scored = score_observations(report.observations, page_lines, lab_dict)
 
@@ -393,6 +396,8 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
 
     if last_report_date and not doc.doc_date:
         doc.doc_date = last_report_date
+    if last_doctor_name and not doc.doctor_name:
+        doc.doctor_name = last_doctor_name
 
     doc.status = "needs_review"
     db.commit()

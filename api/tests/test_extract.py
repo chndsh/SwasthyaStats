@@ -17,6 +17,13 @@ def _make_client(content: str) -> MagicMock:
     return client
 
 
+def test_extract_lab_report_with_doctor_name():
+    from app.pipeline.extract import LabReportRaw, EXTRACTION_SYSTEM_PROMPT
+    assert "doctor" in EXTRACTION_SYSTEM_PROMPT.lower()
+    raw = LabReportRaw(lab_name="Central Lab", doctor_name="Dr. Jane Doe")
+    assert raw.doctor_name == "Dr. Jane Doe"
+
+
 def test_extract_page_happy_path():
     payload = {
         "lab_name": "City Lab",

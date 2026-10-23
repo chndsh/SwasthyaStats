@@ -1,6 +1,6 @@
 import os
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Response
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Response, Query
 from sqlalchemy.orm import Session
 from app.db import get_db
 from app.security.auth import verify_api_key
@@ -34,9 +34,23 @@ async def upload_documents(
     response_model=List[DocumentRead],
     dependencies=[Depends(verify_api_key)],
 )
-def list_documents(db: Session = Depends(get_db)):
-    """Lists all documents for the primary patient, ordered by creation date descending."""
-    return db.query(Document).order_by(Document.created_at.desc()).all()
+def list_documents(
+    sort_by: Optional[str] = Query("date_desc"),
+    db: Session = Depends(get_db),
+):
+    """Lists all documents for the primary patient, ordered by requested sort option."""
+    query = db.query(Document)
+    if sort_by == "doctor_asc":
+        query = query.order_by(Document.doctor_name.asc().nullslast(), Document.created_at.desc())
+    elif sort_by == "doctor_desc":
+        query = query.order_by(Document.doctor_name.desc().nullslast(), Document.created_at.desc())
+    elif sort_by == "date_asc":
+        query = query.order_by(Document.created_at.asc())
+    elif sort_by == "filename":
+        query = query.order_by(Document.filename.asc())
+    else:  # date_desc default
+        query = query.order_by(Document.created_at.desc())
+    return query.all()
 
 
 @router.get(

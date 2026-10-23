@@ -52,6 +52,7 @@ class Document(Base):
         index=True,
     )  # queued | normalizing | ocr | extracting | needs_review | confirmed | failed | rate_limited
     doc_type = Column(String(50), nullable=True, default="lab_report")
+    doctor_name = Column(String(255), nullable=True)
     doc_date = Column(Date, nullable=True)
     ocr_text = Column(Text, nullable=True)
     ocr_lines = Column(JSONB, nullable=True)  # list of {id, page, text, bbox, conf, row_id}
