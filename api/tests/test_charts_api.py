@@ -5,8 +5,18 @@ from app.main import app
 from app.db import SessionLocal
 from app.models import Patient, Document, Observation
 
+from app.config import get_settings
+
 client = TestClient(app)
-HEADERS = {"X-API-Key": "change-me"}
+
+
+def auth_headers():
+    settings = get_settings()
+    token = client.post(
+        "/auth/login",
+        json={"email": settings.ADMIN_EMAIL, "password": settings.ADMIN_PASSWORD},
+    ).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
@@ -106,13 +116,13 @@ def chart_test_data():
 
 def test_list_tests_empty():
     # Calling /tests when no observations match or before data
-    r = client.get("/api/v1/tests", headers=HEADERS)
+    r = client.get("/api/v1/tests", headers=auth_headers())
     assert r.status_code == 200
     assert isinstance(r.json(), list)
 
 
 def test_list_tests_with_confirmed_obs(chart_test_data):
-    r = client.get("/api/v1/tests", headers=HEADERS)
+    r = client.get("/api/v1/tests", headers=auth_headers())
     assert r.status_code == 200
     items = r.json()
     names = [t["test_name"] for t in items]
@@ -130,7 +140,7 @@ def test_list_tests_with_confirmed_obs(chart_test_data):
 
 
 def test_charts_lab_no_data():
-    r = client.get("/api/v1/charts/lab?test=NonExistentTestXYZ", headers=HEADERS)
+    r = client.get("/api/v1/charts/lab?test=NonExistentTestXYZ", headers=auth_headers())
     assert r.status_code == 200
     body = r.json()
     assert body["points"] == []
@@ -140,7 +150,7 @@ def test_charts_lab_no_data():
 
 
 def test_charts_lab_returns_points(chart_test_data):
-    r = client.get("/api/v1/charts/lab?test=HbA1c", headers=HEADERS)
+    r = client.get("/api/v1/charts/lab?test=HbA1c", headers=auth_headers())
     assert r.status_code == 200
     body = r.json()
     assert body["test_name"] == "HbA1c"
@@ -156,14 +166,14 @@ def test_charts_lab_returns_points(chart_test_data):
 
 
 def test_charts_lab_excludes_null_dates(chart_test_data):
-    r = client.get("/api/v1/charts/lab?test=Glucose", headers=HEADERS)
+    r = client.get("/api/v1/charts/lab?test=Glucose", headers=auth_headers())
     assert r.status_code == 200
     body = r.json()
     assert body["points"] == []  # Excluded because collected_at is None
 
 
 def test_charts_lab_date_filter(chart_test_data):
-    r = client.get("/api/v1/charts/lab?test=HbA1c&from=2026-05-01&to=2026-12-31", headers=HEADERS)
+    r = client.get("/api/v1/charts/lab?test=HbA1c&from=2026-05-01&to=2026-12-31", headers=auth_headers())
     assert r.status_code == 200
     body = r.json()
     assert len(body["points"]) == 1

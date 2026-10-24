@@ -50,7 +50,7 @@ class _Adapter implements HttpClientAdapter {
     requests.add({
       'path': options.uri.path,
       'authorization': options.headers['Authorization'],
-      'hasApiKey': options.headers.containsKey('X-API-Key'),
+      'hasLegacyApiKey': options.headers.containsKey('X-API-Key'),
     });
     final path = options.uri.path;
     if (path.endsWith('/auth/refresh')) {
@@ -105,7 +105,7 @@ void main() {
     expect(storage.refresh, 'new-refresh');
     expect(adapter.protectedCalls, 2);
     expect(adapter.requests[0]['authorization'], 'Bearer old-access');
-    expect(adapter.requests[0]['hasApiKey'], isFalse);
+    expect(adapter.requests[0]['hasLegacyApiKey'], isFalse);
     expect(adapter.requests[2]['authorization'], 'Bearer new-access');
   });
 

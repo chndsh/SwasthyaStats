@@ -4,8 +4,18 @@ from app.main import app
 from app.rag.orchestrator import AskResult
 from app.schemas import CitationRef
 
+from app.config import get_settings
+
 client = TestClient(app)
-HEADERS = {"X-API-Key": "change-me"}
+
+
+def auth_headers():
+    settings = get_settings()
+    token = client.post(
+        "/auth/login",
+        json={"email": settings.ADMIN_EMAIL, "password": settings.ADMIN_PASSWORD},
+    ).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 def test_ask_endpoint_requires_api_key():
@@ -16,7 +26,7 @@ def test_ask_endpoint_requires_api_key():
 def test_ask_endpoint_returns_answer(monkeypatch):
     from app.routers import ask
 
-    def fake_ask(db, question):
+    def fake_ask(db, question, user_id=None):
         return AskResult(
             answer="Your HbA1c is 7.2% [obs:101].",
             citations=[CitationRef(type="obs", id=101)],
@@ -24,7 +34,7 @@ def test_ask_endpoint_returns_answer(monkeypatch):
 
     monkeypatch.setattr(ask, "orchestrator_ask", fake_ask)
 
-    r = client.post("/api/v1/ask", json={"question": "What is my HbA1c?"}, headers=HEADERS)
+    r = client.post("/api/v1/ask", json={"question": "What is my HbA1c?"}, headers=auth_headers())
     assert r.status_code == 200
     data = r.json()
     assert "Your HbA1c is 7.2%" in data["answer"]

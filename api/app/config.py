@@ -8,7 +8,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     DATABASE_URL: str = "postgresql+psycopg://postgres:dev@localhost:5432/health"
-    API_KEY: Optional[str] = "change-me"
     SERVER_SECRET: str = "dev-secret-key-32-chars-long-abc123!"
     DEV_CORS: bool = False
     STORAGE_PATH: str = "/data/files"

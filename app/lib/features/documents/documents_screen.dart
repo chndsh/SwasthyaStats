@@ -154,19 +154,16 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   }
 
   Future<void> _handleFilePick(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      withData: true,
+    final files = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['png', 'jpg', 'jpeg', 'pdf'],
     );
 
-    if (result != null && result.files.isNotEmpty) {
+    if (files.isNotEmpty) {
       final List<MultipartFile> filesToUpload = [];
-      for (final file in result.files) {
-        if (file.bytes != null) {
-          filesToUpload.add(MultipartFile.fromBytes(file.bytes!, filename: file.name));
-        }
+      for (final file in files) {
+        final bytes = await file.readAsBytes();
+        filesToUpload.add(MultipartFile.fromBytes(bytes, filename: file.name));
       }
       if (filesToUpload.isNotEmpty && context.mounted) {
         await _upload(filesToUpload);

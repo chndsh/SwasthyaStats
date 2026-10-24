@@ -3,9 +3,18 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.db import SessionLocal
 from app.models import Patient, Document, Observation, Extraction
+from app.config import get_settings
 
 client = TestClient(app)
-HEADERS = {"X-API-Key": "change-me"}
+
+
+def auth_headers():
+    settings = get_settings()
+    token = client.post(
+        "/auth/login",
+        json={"email": settings.ADMIN_EMAIL, "password": settings.ADMIN_PASSWORD},
+    ).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
@@ -58,13 +67,13 @@ def test_setup():
 
 
 def test_extraction_endpoint_404_on_missing():
-    r = client.get("/api/v1/documents/99999/extraction", headers=HEADERS)
+    r = client.get("/api/v1/documents/99999/extraction", headers=auth_headers())
     assert r.status_code == 404
 
 
 def test_extraction_endpoint_returns_data(test_setup):
     doc_id, obs_id = test_setup
-    r = client.get(f"/api/v1/documents/{doc_id}/extraction", headers=HEADERS)
+    r = client.get(f"/api/v1/documents/{doc_id}/extraction", headers=auth_headers())
     assert r.status_code == 200
     data = r.json()
     assert data["document_id"] == doc_id
@@ -78,7 +87,7 @@ def test_patch_observation_updates_value(test_setup):
     doc_id, obs_id = test_setup
     r = client.patch(
         f"/api/v1/observations/{obs_id}",
-        headers=HEADERS,
+        headers=auth_headers(),
         json={"value_num": 14.5, "unit": "g/dL"},
     )
     assert r.status_code == 200
@@ -87,7 +96,7 @@ def test_patch_observation_updates_value(test_setup):
 
 def test_confirm_sets_observations_confirmed(test_setup):
     doc_id, obs_id = test_setup
-    r = client.post(f"/api/v1/documents/{doc_id}/confirm", headers=HEADERS)
+    r = client.post(f"/api/v1/documents/{doc_id}/confirm", headers=auth_headers())
     assert r.status_code == 200
     assert r.json()["confirmed"] == 1
 
@@ -105,12 +114,12 @@ def test_confirm_sets_observations_confirmed(test_setup):
 def test_patch_observation_blocked_after_confirm(test_setup):
     doc_id, obs_id = test_setup
     # Confirm first
-    client.post(f"/api/v1/documents/{doc_id}/confirm", headers=HEADERS)
+    client.post(f"/api/v1/documents/{doc_id}/confirm", headers=auth_headers())
 
     # Attempt to patch
     r = client.patch(
         f"/api/v1/observations/{obs_id}",
-        headers=HEADERS,
+        headers=auth_headers(),
         json={"value_num": 99.0},
     )
     assert r.status_code == 409
@@ -129,7 +138,7 @@ def test_manual_add_observation_to_document(test_setup):
     }
     r = client.post(
         f"/api/v1/documents/{doc_id}/observations",
-        headers=HEADERS,
+        headers=auth_headers(),
         json=payload,
     )
     assert r.status_code == 201
@@ -137,4 +146,3 @@ def test_manual_add_observation_to_document(test_setup):
     assert data["test_name"] == "Serum Ferritin"
     assert data["value_num"] == 150.0
     assert data["status"] == "pending"
-

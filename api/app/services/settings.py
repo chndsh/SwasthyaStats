@@ -44,37 +44,28 @@ class SettingsService:
         return user[0]
 
     def get_raw_settings(self) -> Dict[str, Any]:
-        records = (
-            self.db.query(AppSetting)
-            .filter(AppSetting.user_id == self._effective_user_id())
-            .all()
-        )
+        query = self.db.query(AppSetting)
+        if self.user_id is not None:
+            query = query.filter(AppSetting.user_id == self.user_id)
+        records = query.all()
         data = {r.key: r.value for r in records}
         return data
 
     def get_setting_value(self, key: str, default: Any = None) -> Any:
-        record = (
-            self.db.query(AppSetting)
-            .filter(
-                AppSetting.user_id == self._effective_user_id(),
-                AppSetting.key == key,
-            )
-            .first()
-        )
+        query = self.db.query(AppSetting).filter(AppSetting.key == key)
+        if self.user_id is not None:
+            query = query.filter(AppSetting.user_id == self.user_id)
+        record = query.first()
         if record:
             return record.value
         return default
 
     def set_setting_value(self, key: str, value: Any, is_secret: bool = False):
         user_id = self._effective_user_id()
-        record = (
-            self.db.query(AppSetting)
-            .filter(
-                AppSetting.user_id == user_id,
-                AppSetting.key == key,
-            )
-            .first()
-        )
+        query = self.db.query(AppSetting).filter(AppSetting.key == key)
+        if self.user_id is not None:
+            query = query.filter(AppSetting.user_id == user_id)
+        record = query.first()
         if record:
             record.value = value
             record.is_secret = is_secret
