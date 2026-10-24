@@ -110,7 +110,7 @@ class ApiClient {
       (_) {
         if (identical(_refreshFuture, refresh)) _refreshFuture = null;
       },
-      onError: (Object _, StackTrace __) {
+      onError: (Object _, StackTrace _) {
         if (identical(_refreshFuture, refresh)) _refreshFuture = null;
       },
     );

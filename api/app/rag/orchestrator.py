@@ -85,11 +85,11 @@ def execute_tool(db: Session, tool_name: str, args: Dict[str, Any]) -> Any:
     return {"error": f"Unknown tool: {tool_name}"}
 
 
-def ask(db: Session, question: str) -> AskResult:
+def ask(db: Session, question: str, user_id: int | None = None) -> AskResult:
     """Orchestrate RAG answer generation using native tool calling or router fallback."""
-    settings_service = SettingsService(db)
+    settings_service = SettingsService(db, user_id=user_id)
     settings = settings_service.get_read_settings()
-    llm = OpenAICompatClient(db)
+    llm = OpenAICompatClient(db, user_id=user_id)
 
     supports_tools = getattr(settings, "llm_supports_tools", True)
     tool_specs = get_tool_specs()

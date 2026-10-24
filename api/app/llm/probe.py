@@ -6,8 +6,8 @@ from app.services.settings import SettingsService
 from app.schemas import TestLlmProbeResult, TestLlmResponse
 
 
-def run_probe_ladder(db: Session) -> TestLlmResponse:
-    settings_service = SettingsService(db)
+def run_probe_ladder(db: Session, user_id: int | None = None) -> TestLlmResponse:
+    settings_service = SettingsService(db, user_id=user_id)
     settings = settings_service.get_read_settings()
     keys = settings_service.get_decrypted_keys()
 

@@ -23,16 +23,17 @@ void main() async {
   );
 }
 
-class SwasthyaStatsApp extends StatelessWidget {
+class SwasthyaStatsApp extends ConsumerWidget {
   const SwasthyaStatsApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = createAppRouter(ref);
     return MaterialApp.router(
       title: 'SwasthyaStats',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
-      routerConfig: appRouter,
+      routerConfig: router,
     );
   }
 }

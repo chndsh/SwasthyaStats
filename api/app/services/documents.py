@@ -247,12 +247,12 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
         db.commit()
         return
 
-    settings_service = SettingsService(db)
+    settings_service = SettingsService(db, user_id=doc.user_id)
     app_settings = settings_service.get_read_settings()
     model_name = app_settings.llm_model or "default"
     prompt_version = "v1"
 
-    client = OpenAICompatClient(db)
+    client = OpenAICompatClient(db, user_id=doc.user_id)
     patient_name = doc.user.display_name if (doc.user and doc.user.display_name) else None
     lab_dict = get_lab_dictionary()
 

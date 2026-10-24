@@ -31,9 +31,9 @@ class _MemoryTokenStorage implements TokenStorage {
     final access = await readAccessToken();
     final refresh = await readRefreshToken();
     return access != null &&
-        access!.isNotEmpty &&
+        access.isNotEmpty &&
         refresh != null &&
-        refresh!.isNotEmpty;
+        refresh.isNotEmpty;
   }
 }
 

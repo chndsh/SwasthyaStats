@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../auth/auth_controller.dart';
+import '../auth/login_screen.dart';
+import '../auth/auth_model.dart';
 import '../settings/settings_screen.dart';
 import '../documents/documents_screen.dart';
 import '../documents/document_view_screen.dart';
@@ -71,6 +75,7 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
             NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
           ],
         ),
+        floatingActionButton: _logoutButton(context),
       );
     } else {
       return Scaffold(
@@ -103,9 +108,22 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
             Expanded(child: _InstallBannerWrapper(child: child)),
           ],
         ),
+        floatingActionButton: _logoutButton(context),
       );
 
     }
+
+  }
+
+  Widget _logoutButton(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, child) => FloatingActionButton.small(
+        heroTag: 'logout',
+        tooltip: 'Log out',
+        onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+        child: const Icon(Icons.logout),
+      ),
+    );
   }
 }
 
@@ -196,10 +214,26 @@ class AskPlaceholderScreen extends StatelessWidget {
   }
 }
 
-final appRouter = GoRouter(
-  navigatorKey: _rootNavigatorKey,
-  initialLocation: '/settings',
-  routes: [
+GoRouter createAppRouter(WidgetRef ref) {
+  final refresh = _AuthRouterRefresh(ref);
+  return GoRouter(
+    navigatorKey: _rootNavigatorKey,
+    initialLocation: '/documents',
+    refreshListenable: refresh,
+    redirect: (context, state) {
+      final authState = ref.read(authControllerProvider);
+      return authRedirect(
+        authState: authState,
+        location: state.matchedLocation,
+        requestedLocation: state.uri.toString(),
+        redirectTarget: state.uri.queryParameters['redirect'],
+      );
+    },
+    routes: [
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
       builder: (context, state, child) => ScaffoldWithResponsiveNav(child: child),
@@ -244,6 +278,34 @@ final appRouter = GoRouter(
 
       ],
     ),
-  ],
-);
+    ],
+  );
+}
 
+String? authRedirect({
+  required AuthState authState,
+  required String location,
+  required String requestedLocation,
+  String? redirectTarget,
+}) {
+  final isLogin = location == '/login';
+  if (authState.status == AuthStatus.loading) {
+    return isLogin ? null : '/login';
+  }
+  if (!authState.isAuthenticated && !isLogin) {
+    return '/login?redirect=${Uri.encodeComponent(requestedLocation)}';
+  }
+  if (authState.isAuthenticated && isLogin) {
+    return redirectTarget ?? '/documents';
+  }
+  return null;
+}
+
+class _AuthRouterRefresh extends ChangeNotifier {
+  _AuthRouterRefresh(WidgetRef ref) {
+    ref.listen<AuthState>(
+      authControllerProvider,
+      (previous, next) => notifyListeners(),
+    );
+  }
+}

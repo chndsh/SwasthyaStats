@@ -70,30 +70,28 @@ final authServiceProvider = Provider<AuthService>((ref) {
 });
 
 class AuthController extends StateNotifier<AuthState> {
-  final TokenStorage _tokenStorage;
-  final AuthService _authService;
+  final TokenStorage tokenStorage;
+  final AuthService authService;
 
   AuthController({
-    required TokenStorage tokenStorage,
-    required AuthService authService,
+    required this.tokenStorage,
+    required this.authService,
     ApiClient? apiClient,
-  })  : _tokenStorage = tokenStorage,
-        _authService = authService,
-        super(const AuthState.loading()) {
+  }) : super(const AuthState.loading()) {
     apiClient?.onSessionExpired = markSessionExpired;
   }
 
   Future<void> initialize() async {
     state = const AuthState.loading();
-    if (!await _tokenStorage.hasCompleteSession()) {
+    if (!await tokenStorage.hasCompleteSession()) {
       state = const AuthState.unauthenticated();
       return;
     }
 
     try {
-      state = AuthState.authenticated(await _authService.currentUser());
+      state = AuthState.authenticated(await authService.currentUser());
     } catch (_) {
-      await _tokenStorage.clear();
+      await tokenStorage.clear();
       state = const AuthState.unauthenticated();
     }
   }
@@ -104,19 +102,19 @@ class AuthController extends StateNotifier<AuthState> {
   }) async {
     state = const AuthState.loading();
     try {
-      final tokens = await _authService.login(email: email, password: password);
-      await _tokenStorage.writeTokens(
+      final tokens = await authService.login(email: email, password: password);
+      await tokenStorage.writeTokens(
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
       );
-      state = AuthState.authenticated(await _authService.currentUser());
+      state = AuthState.authenticated(await authService.currentUser());
       return true;
     } on DioException catch (error) {
-      await _tokenStorage.clear();
+      await tokenStorage.clear();
       state = AuthState.unauthenticated(errorMessage: _safeError(error));
       return false;
     } catch (_) {
-      await _tokenStorage.clear();
+      await tokenStorage.clear();
       state = const AuthState.unauthenticated(
         errorMessage: 'Unable to sign in. Please try again.',
       );
@@ -125,21 +123,21 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    final refreshToken = await _tokenStorage.readRefreshToken();
+    final refreshToken = await tokenStorage.readRefreshToken();
     try {
       if (refreshToken != null && refreshToken.isNotEmpty) {
-        await _authService.logout(refreshToken: refreshToken);
+        await authService.logout(refreshToken: refreshToken);
       }
     } catch (_) {
       // Local credentials must still be removed when the server is unavailable.
     } finally {
-      await _tokenStorage.clear();
+      await tokenStorage.clear();
       state = const AuthState.unauthenticated();
     }
   }
 
   Future<void> markSessionExpired() async {
-    await _tokenStorage.clear();
+    await tokenStorage.clear();
     state = const AuthState.unauthenticated(
       errorMessage: 'Your session has expired. Please sign in again.',
     );

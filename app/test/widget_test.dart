@@ -51,8 +51,4 @@ class SettingsControllerMock extends SettingsController {
 }
 
 class FakeApiClient extends Fake implements ApiClient {
-  @override
-  String get apiKey => 'test-key';
-  @override
-  void setApiKey(String key) {}
 }

@@ -5,7 +5,7 @@ from typing import List, Optional
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
@@ -100,16 +100,9 @@ def create_refresh_token(user_id: int) -> str:
 
 def get_current_user(
     token: Optional[str] = Depends(oauth2_scheme),
-    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     db: Session = Depends(get_db),
 ) -> User:
     settings = get_settings()
-    if x_api_key and settings.API_KEY and x_api_key == settings.API_KEY:
-        admin = db.query(User).filter(User.is_admin == True).first()
-        if admin:
-            set_rls_user_id(db, admin.id)
-            return admin
-
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/api_client.dart';
 import 'settings_controller.dart';
 import 'settings_model.dart';
 
@@ -12,7 +11,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final _apiKeyCtrl = TextEditingController();
   final _baseUrlCtrl = TextEditingController();
   final _modelCtrl = TextEditingController();
   final _newKeyCtrl = TextEditingController();
@@ -20,7 +18,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   String _provider = 'groq';
   String _strategy = 'failover';
-  bool _rememberKey = true;
   bool _redactPii = true;
   bool _isInit = false;
 
@@ -36,7 +33,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   void dispose() {
-    _apiKeyCtrl.dispose();
     _baseUrlCtrl.dispose();
     _modelCtrl.dispose();
     _newKeyCtrl.dispose();
@@ -58,11 +54,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(settingsControllerProvider);
     final notifier = ref.read(settingsControllerProvider.notifier);
-    final apiClient = ref.read(apiClientProvider);
-
-    if (_apiKeyCtrl.text.isEmpty) {
-      _apiKeyCtrl.text = apiClient.apiKey;
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -88,40 +79,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const Icon(Icons.lock_person, size: 56, color: Colors.amber),
                   const SizedBox(height: 12),
                   Text(
-                    'Failed to connect to backend: $err',
+                    'Unable to load settings. Please check your session and try again.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                   ),
                   const SizedBox(height: 12),
-                  const Card(
-                    color: Color(0xFFFFFBEB),
-                    child: Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text(
-                        '💡 If you received 401 Unauthorized: The Backend Server Key (X-API-Key) does not match the server configuration.\n\n'
-                        'For local Docker development, the default is "change-me".\n\n'
-                        'If you accidentally entered your Groq or OpenAI key into the server key field, tap the button below to reset it to "change-me" and reconnect. (Groq keys belong in the LLM Key Pool section, not the Server Key field).',
-                        style: TextStyle(color: Color(0xFF92400E), fontSize: 13),
-                      ),
-                    ),
+                  const Text(
+                    'Your session credentials are managed securely by the application. '
+                    'LLM provider keys belong in the LLM Key Pool section below.',
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.restore),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D9488),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    ),
-                    onPressed: () {
-                      _apiKeyCtrl.text = 'change-me';
-                      apiClient.setApiKey('change-me');
-                      notifier.loadAll();
-                    },
-                    label: const Text('Reset Server Key to "change-me" & Retry'),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildBackendSection(apiClient, notifier),
                 ],
               ),
             ),
@@ -138,8 +105,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildBackendSection(apiClient, notifier),
-                    const SizedBox(height: 24),
                     _buildProviderSection(notifier, state.models),
                     const SizedBox(height: 24),
                     _buildKeyPoolSection(settings, notifier),
@@ -154,70 +119,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildBackendSection(ApiClient apiClient, [SettingsController? notifier]) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.security, size: 20, color: Color(0xFF0D9488)),
-                const SizedBox(width: 8),
-                const Text('Backend Server Authentication', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Security key to authenticate HTTP requests with your local SwasthyaStats backend server (X-API-Key header). '
-              'Default for Docker is "change-me". '
-              'Do NOT enter your Groq or OpenAI key here (enter those in the LLM Key Pool below).',
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _apiKeyCtrl,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Server Key (default: change-me)',
-                      prefixIcon: Icon(Icons.key),
-                      helperText: 'For local setup, keep this as "change-me"',
-                    ),
-                    onChanged: (val) => apiClient.setApiKey(val),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.restart_alt, size: 16),
-                  onPressed: () {
-                    _apiKeyCtrl.text = 'change-me';
-                    apiClient.setApiKey('change-me');
-                    if (notifier != null) notifier.loadAll();
-                  },
-                  label: const Text('Reset'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Checkbox(
-                  value: _rememberKey,
-                  onChanged: (v) => setState(() => _rememberKey = v ?? true),
-                ),
-                const Text('Remember on this device'),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -306,7 +207,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Failed to save settings. Please verify Server Key is "change-me".'), backgroundColor: Colors.red),
+                      const SnackBar(content: Text('Failed to save settings. Please check your session and try again.'), backgroundColor: Colors.red),
                     );
                   }
                 }

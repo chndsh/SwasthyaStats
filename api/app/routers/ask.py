@@ -27,5 +27,5 @@ def ask_question(
 ):
     """Answer patient questions based on confirmed records and hybrid search."""
     set_rls_user_id(db, current_user.id)
-    result = orchestrator_ask(db, req.question)
+    result = orchestrator_ask(db, req.question, user_id=current_user.id)
     return AskResponse(answer=result.answer, citations=result.citations)

@@ -1,7 +1,7 @@
 import json
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
-from app.models import AppSetting
+from app.models import AppSetting, User
 from app.config import get_settings
 from app.security.crypto import encrypt_secret, decrypt_secret
 from app.schemas import AppSettingsRead, AppSettingsUpdate, MaskedApiKeyEntry, ApiKeyEntry
@@ -25,28 +25,66 @@ def mask_key(key: str) -> str:
 
 
 class SettingsService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, user_id: Optional[int] = None):
         self.db = db
         self.env = get_settings()
+        self.user_id = user_id
+
+    def _effective_user_id(self) -> int:
+        if self.user_id is not None:
+            return self.user_id
+        user = (
+            self.db.query(User.id)
+            .filter(User.is_admin == True)
+            .order_by(User.id.asc())
+            .first()
+        )
+        if user is None:
+            raise ValueError("No user exists for settings")
+        return user[0]
 
     def get_raw_settings(self) -> Dict[str, Any]:
-        records = self.db.query(AppSetting).all()
+        records = (
+            self.db.query(AppSetting)
+            .filter(AppSetting.user_id == self._effective_user_id())
+            .all()
+        )
         data = {r.key: r.value for r in records}
         return data
 
     def get_setting_value(self, key: str, default: Any = None) -> Any:
-        record = self.db.query(AppSetting).filter(AppSetting.key == key).first()
+        record = (
+            self.db.query(AppSetting)
+            .filter(
+                AppSetting.user_id == self._effective_user_id(),
+                AppSetting.key == key,
+            )
+            .first()
+        )
         if record:
             return record.value
         return default
 
     def set_setting_value(self, key: str, value: Any, is_secret: bool = False):
-        record = self.db.query(AppSetting).filter(AppSetting.key == key).first()
+        user_id = self._effective_user_id()
+        record = (
+            self.db.query(AppSetting)
+            .filter(
+                AppSetting.user_id == user_id,
+                AppSetting.key == key,
+            )
+            .first()
+        )
         if record:
             record.value = value
             record.is_secret = is_secret
         else:
-            record = AppSetting(key=key, value=value, is_secret=is_secret)
+            record = AppSetting(
+                user_id=user_id,
+                key=key,
+                value=value,
+                is_secret=is_secret,
+            )
             self.db.add(record)
         self.db.commit()
 
