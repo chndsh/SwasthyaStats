@@ -43,16 +43,17 @@ class LlmResponse:
 
 
 class OpenAICompatClient:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, user_id: int = 1):
         self.db = db
-        self.settings_service = SettingsService(db)
+        self.user_id = user_id
+        self.settings_service = SettingsService(db, user_id)
 
     def _get_daily_token_usage(self) -> int:
         from datetime import datetime, timezone
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         total = (
             self.db.query(func.coalesce(func.sum(LlmCall.prompt_tokens + LlmCall.completion_tokens), 0))
-            .filter(LlmCall.created_at >= today_start)
+            .filter(LlmCall.created_at >= today_start, LlmCall.user_id == self.user_id)
             .scalar()
         )
         return int(total)

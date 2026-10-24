@@ -9,6 +9,7 @@ from app.models import Document, DocumentPage, Extraction, Observation, Chunk, U
 from app.schemas import DocumentRead, DocumentUploadResponse, ExtractionRead, ObservationRead, ObservationCreate
 from app.services.documents import validate_and_create_document, process_document_background, get_lab_dictionary
 from app.pipeline.normalize import _find_canonical_test_id
+from app.security.crypto import encrypt_for_user, decrypt_for_user
 
 router = APIRouter(prefix="/api/v1/documents", tags=["Documents"])
 
@@ -70,6 +71,8 @@ def get_document(
     doc = db.query(Document).filter(Document.id == document_id, Document.user_id == current_user.id).first()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    if doc.ocr_text:
+        doc.ocr_text = decrypt_for_user(doc.ocr_text, current_user.id)
     return doc
 
 
@@ -133,7 +136,10 @@ def get_document_extraction(
             "test_name": o.test_name,
             "canonical_test_id": o.canonical_test_id,
             "value_num": o.value_num,
-            "value_text": o.value_text,
+            "value_text": (
+                decrypt_for_user(o.value_text, current_user.id)
+                if o.value_text is not None else None
+            ),
             "unit": o.unit,
             "ref_low": o.ref_low,
             "ref_high": o.ref_high,
@@ -186,7 +192,10 @@ def add_manual_observation(
         test_name=obs_in.test_name,
         canonical_test_id=canon_id,
         value_num=obs_in.value_num,
-        value_text=obs_in.value_text,
+        value_text=(
+            encrypt_for_user(obs_in.value_text, current_user.id)
+            if obs_in.value_text is not None else None
+        ),
         unit=obs_in.unit,
         ref_low=obs_in.ref_low,
         ref_high=obs_in.ref_high,
@@ -218,7 +227,10 @@ def add_manual_observation(
         test_name=obs.test_name,
         canonical_test_id=obs.canonical_test_id,
         value_num=obs.value_num,
-        value_text=obs.value_text,
+        value_text=(
+            decrypt_for_user(obs.value_text, current_user.id)
+            if obs.value_text is not None else None
+        ),
         unit=obs.unit,
         ref_low=obs.ref_low,
         ref_high=obs.ref_high,
@@ -290,7 +302,9 @@ def retry_document_extraction(
         from app.services.documents import _run_extraction_stage
         s = SessionLocal()
         try:
-            _run_extraction_stage(d_id, s)
+            from app.db import set_rls_user_id
+            set_rls_user_id(s, u_id)
+            _run_extraction_stage(d_id, u_id, s)
         finally:
             s.close()
 

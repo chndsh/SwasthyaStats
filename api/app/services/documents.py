@@ -19,6 +19,7 @@ from app.pipeline.extract import extract_page, ExtractionFailed, LabReportRaw
 from app.pipeline.normalize import score_observations, ScoredObservation
 from app.llm.client import OpenAICompatClient
 from app.services.settings import SettingsService
+from app.security.crypto import encrypt_for_user, decrypt_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +111,12 @@ def validate_and_create_document(
     return doc, file_payloads
 
 
-def process_document_background(doc_id: int, file_payloads: List[Tuple[str, bytes]], user_id: Optional[int] = None) -> None:
+def process_document_background(doc_id: int, file_payloads: List[Tuple[str, bytes]], user_id: int) -> None:
     """Asynchronous background worker executing page normalization and EasyOCR."""
     settings = get_settings()
     db = SessionLocal()
-    if user_id:
-        from app.db import set_rls_user_id
-        set_rls_user_id(db, user_id)
+    from app.db import set_rls_user_id
+    set_rls_user_id(db, user_id)
 
     try:
         doc = db.query(Document).filter(Document.id == doc_id).first()
@@ -183,12 +183,12 @@ def process_document_background(doc_id: int, file_payloads: List[Tuple[str, byte
             if page_text:
                 page_texts.append(page_text)
 
-        doc.ocr_text = "\n\n".join(page_texts)
+        doc.ocr_text = encrypt_for_user("\n\n".join(page_texts), user_id)
         doc.ocr_lines = all_ocr_lines
         db.commit()
 
         # 3. Status: Extraction & Normalization
-        _run_extraction_stage(doc_id, db)
+        _run_extraction_stage(doc_id, user_id, db)
         logger.info(f"Document {doc_id} processing completed successfully")
 
     except Exception as e:
@@ -230,11 +230,17 @@ def get_lab_dictionary() -> dict:
     return _lab_dictionary_cache
 
 
-def _run_extraction_stage(doc_id: int, db: Session) -> None:
+def _run_extraction_stage(doc_id: int, user_id: int | Session, db: Optional[Session] = None) -> None:
     """Executes PII redaction, structured LLM extraction per page, grounding check,
 
     and dictionary normalization. Pauses on rate limits with status='rate_limited'.
     """
+    if db is None:
+        db = user_id
+        doc = db.query(Document).filter(Document.id == doc_id).first()
+        if not doc:
+            return
+        user_id = doc.user_id
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         return
@@ -247,12 +253,12 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
         db.commit()
         return
 
-    settings_service = SettingsService(db)
+    settings_service = SettingsService(db, user_id)
     app_settings = settings_service.get_read_settings()
     model_name = app_settings.llm_model or "default"
     prompt_version = "v1"
 
-    client = OpenAICompatClient(db)
+    client = OpenAICompatClient(db, user_id)
     patient_name = doc.user.display_name if (doc.user and doc.user.display_name) else None
     lab_dict = get_lab_dictionary()
 
@@ -295,7 +301,7 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
             page_text = "\n".join([l.get("text", "") for l in page_lines])
 
         if not page_text and doc.ocr_text and total_pages == 1:
-            page_text = doc.ocr_text
+            page_text = decrypt_for_user(doc.ocr_text, user_id)
 
         redacted = redact_text(page_text, patient_name)
         line_ids = [l["id"] for l in page_lines if "id" in l]
@@ -313,7 +319,8 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
 
         if cached_ext and cached_ext.raw_json:
             try:
-                report = LabReportRaw.model_validate(cached_ext.raw_json)
+                cached_json = decrypt_for_user(cached_ext.raw_json, user_id)
+                report = LabReportRaw.model_validate(json.loads(cached_json))
             except Exception:
                 report = None
         else:
@@ -370,7 +377,10 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
                 test_name=s.obs.test_name,
                 canonical_test_id=s.canonical_test_id,
                 value_num=s.obs.value,
-                value_text=s.obs.value_text,
+                value_text=(
+                    encrypt_for_user(s.obs.value_text, user_id)
+                    if s.obs.value_text is not None else None
+                ),
                 unit=s.normalized_unit,
                 ref_low=s.normalized_ref_low,
                 ref_high=s.normalized_ref_high,
@@ -391,7 +401,10 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
                 prompt_version=prompt_version,
                 structured_mode=app_settings.llm_structured_mode,
                 input_hash=input_hash,
-                raw_json=report.model_dump(mode="json"),
+                raw_json=encrypt_for_user(
+                    json.dumps(report.model_dump(mode="json")),
+                    user_id,
+                ),
                 field_confidence=confidence_map,
             )
             db.add(extraction)

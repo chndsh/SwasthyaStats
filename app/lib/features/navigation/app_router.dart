@@ -7,6 +7,8 @@ import '../review/review_screen.dart';
 import '../labs/labs_screen.dart';
 import '../labs/lab_detail_screen.dart';
 import '../ask/ask_screen.dart';
+import '../auth/login_screen.dart';
+import '../admin/admin_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 
@@ -200,6 +202,7 @@ final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/settings',
   routes: [
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
       builder: (context, state, child) => ScaffoldWithResponsiveNav(child: child),
@@ -241,9 +244,9 @@ final appRouter = GoRouter(
         ),
         GoRoute(path: '/ask', builder: (context, state) => const AskScreen()),
         GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+        GoRoute(path: '/admin', builder: (context, state) => const AdminScreen()),
 
       ],
     ),
   ],
 );
-

@@ -4,6 +4,7 @@ from typing import List, Tuple
 from app.db import SessionLocal
 from app.models import Document, Observation, Chunk
 from app.pipeline.embed import get_embed_engine, observation_summary
+from app.security.crypto import decrypt_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,8 @@ def embed_document(document_id: int) -> None:
             chunk_items.append((summary, obs.page_no or 1))
 
         # 2. Document OCR text summary chunk
-        if doc.ocr_text and doc.ocr_text.strip():
-            page_text = doc.ocr_text.strip()[:2000]
+        if doc.ocr_text:
+            page_text = decrypt_for_user(doc.ocr_text, doc.user_id).strip()[:2000]
             chunk_items.append((page_text, 1))
 
         if not chunk_items:

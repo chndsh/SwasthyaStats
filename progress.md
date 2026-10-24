@@ -567,3 +567,11 @@ Implement Week 4 deliverables according to `prototype-architecture.md`:
 | Guest LLM keys hidden from host | ✅ |
 | Host cannot read data during processing | ❌ (disclosed, unavoidable) |
 | Chunk text hidden from host | ❌ (disclosed, needed for RAG) |
+
+## 2026-10-23 — Auth multi-user implementation continued
+
+- Completed plan Tasks 5–9: per-user settings isolation, user-scoped worker encryption, Flutter auth storage/login, JWT request refresh, and admin user screen.
+- Removed legacy API key configuration from Docker and backend auth dependency.
+- Verification: `python3 -m compileall -q api/app`, `git diff --check`, and Flutter analyze all pass.
+- Flutter tests pass (`16/16`) and `flutter build web --wasm` succeeds after upgrading `flutter_secure_storage` and `file_picker` to WASM-compatible releases.
+- Backend pytest and Docker smoke tests require interactive Docker permission approval in the host CLI and were not run here.

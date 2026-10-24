@@ -1,10 +1,9 @@
-import json
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List
 from sqlalchemy.orm import Session
-from app.models import AppSetting
+from app.models import UserSetting, User
 from app.config import get_settings
-from app.security.crypto import encrypt_secret, decrypt_secret
-from app.schemas import AppSettingsRead, AppSettingsUpdate, MaskedApiKeyEntry, ApiKeyEntry
+from app.security.crypto import encrypt_for_user, decrypt_for_user
+from app.schemas import AppSettingsRead, AppSettingsUpdate, MaskedApiKeyEntry
 
 PROVIDER_PRESETS = {
     "groq": "https://api.groq.com/openai/v1",
@@ -25,28 +24,45 @@ def mask_key(key: str) -> str:
 
 
 class SettingsService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, user_id: int = 1):
         self.db = db
+        self.user_id = user_id
         self.env = get_settings()
 
+    def is_user_admin(self) -> bool:
+        user = self.db.query(User).filter(User.id == self.user_id).first()
+        return bool(user and user.is_admin)
+
     def get_raw_settings(self) -> Dict[str, Any]:
-        records = self.db.query(AppSetting).all()
-        data = {r.key: r.value for r in records}
+        records = (
+            self.db.query(UserSetting)
+            .filter(UserSetting.user_id == self.user_id)
+            .all()
+        )
+        data = {record.key: record.value for record in records}
         return data
 
     def get_setting_value(self, key: str, default: Any = None) -> Any:
-        record = self.db.query(AppSetting).filter(AppSetting.key == key).first()
+        record = (
+            self.db.query(UserSetting)
+            .filter(UserSetting.user_id == self.user_id, UserSetting.key == key)
+            .first()
+        )
         if record:
             return record.value
         return default
 
     def set_setting_value(self, key: str, value: Any, is_secret: bool = False):
-        record = self.db.query(AppSetting).filter(AppSetting.key == key).first()
+        record = (
+            self.db.query(UserSetting)
+            .filter(UserSetting.user_id == self.user_id, UserSetting.key == key)
+            .first()
+        )
         if record:
             record.value = value
             record.is_secret = is_secret
         else:
-            record = AppSetting(key=key, value=value, is_secret=is_secret)
+            record = UserSetting(user_id=self.user_id, key=key, value=value, is_secret=is_secret)
             self.db.add(record)
         self.db.commit()
 
@@ -61,26 +77,27 @@ class SettingsService:
         if not base_url:
             base_url = self.env.LLM_BASE_URL or PROVIDER_PRESETS.get(provider, "https://api.groq.com/openai/v1")
 
-        # Keys (encrypted in DB)
+        # Keys (encrypted in DB with user's key)
         encrypted_keys = raw.get("llm.api_keys", [])
         masked_keys = []
         if encrypted_keys:
             for item in encrypted_keys:
                 enc_key = item.get("key", "")
                 try:
-                    dec = decrypt_secret(enc_key)
+                    dec = decrypt_for_user(enc_key, self.user_id)
                     masked = mask_key(dec)
                 except Exception:
                     masked = "••••(invalid)"
                 masked_keys.append(MaskedApiKeyEntry(masked_key=masked, label=item.get("label")))
         else:
-            # Fallback to env
-            env_key = self.env.GROQ_API_KEY if provider == "groq" and self.env.GROQ_API_KEY else self.env.LLM_API_KEY
-            if env_key:
-                for k in env_key.split(","):
-                    k = k.strip()
-                    if k:
-                        masked_keys.append(MaskedApiKeyEntry(masked_key=mask_key(k), label="env"))
+            # Fallback to env ONLY for admin
+            if self.is_user_admin():
+                env_key = self.env.GROQ_API_KEY if provider == "groq" and self.env.GROQ_API_KEY else self.env.LLM_API_KEY
+                if env_key:
+                    for k in env_key.split(","):
+                        k = k.strip()
+                        if k:
+                            masked_keys.append(MaskedApiKeyEntry(masked_key=mask_key(k), label="env"))
 
         model = raw.get("llm.model") or self.env.LLM_MODEL or ""
 
@@ -115,19 +132,21 @@ class SettingsService:
             for item in encrypted_keys:
                 enc_key = item.get("key", "")
                 try:
-                    dec = decrypt_secret(enc_key)
+                    dec = decrypt_for_user(enc_key, self.user_id)
                     if dec:
                         decrypted.append({"key": dec, "label": item.get("label", "key")})
                 except Exception:
                     continue
         else:
-            provider = raw.get("llm.provider", "groq")
-            env_key = self.env.GROQ_API_KEY if provider == "groq" and self.env.GROQ_API_KEY else self.env.LLM_API_KEY
-            if env_key:
-                for idx, k in enumerate(env_key.split(",")):
-                    k = k.strip()
-                    if k:
-                        decrypted.append({"key": k, "label": f"env-{idx+1}"})
+            # Fallback to env ONLY for admin
+            if self.is_user_admin():
+                provider = raw.get("llm.provider", "groq")
+                env_key = self.env.GROQ_API_KEY if provider == "groq" and self.env.GROQ_API_KEY else self.env.LLM_API_KEY
+                if env_key:
+                    for idx, k in enumerate(env_key.split(",")):
+                        k = k.strip()
+                        if k:
+                            decrypted.append({"key": k, "label": f"env-{idx+1}"})
         return decrypted
 
     def update_settings(self, update: AppSettingsUpdate) -> AppSettingsRead:
@@ -140,7 +159,7 @@ class SettingsService:
             encrypted_list = []
             for item in update.llm_api_keys:
                 if item.key:
-                    enc = encrypt_secret(item.key)
+                    enc = encrypt_for_user(item.key, self.user_id)
                     encrypted_list.append({"key": enc, "label": item.label or "default"})
             self.set_setting_value("llm.api_keys", encrypted_list, is_secret=True)
 
