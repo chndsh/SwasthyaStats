@@ -45,6 +45,11 @@ class PasswordResetRequest(BaseModel):
     password: str
 
 
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
@@ -58,6 +63,7 @@ class UserRead(BaseModel):
     email: str
     display_name: Optional[str] = None
     is_admin: bool
+    must_change_password: bool
     created_at: datetime
 
 
@@ -195,6 +201,14 @@ def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token")
 
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    issued_at = datetime.fromtimestamp(int(payload.get("iat", 0)), tz=timezone.utc)
+    if user.refresh_token_invalidated_at and issued_at <= user.refresh_token_invalidated_at:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token has been revoked")
+
     # Check blocklist
     token_h = hash_token(req.refresh_token)
     blocked = db.query(RefreshTokenBlocklist).filter(RefreshTokenBlocklist.token_hash == token_h).first()
@@ -206,10 +220,6 @@ def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
     block_entry = RefreshTokenBlocklist(token_hash=token_h, expires_at=exp_dt)
     db.add(block_entry)
     db.commit()
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     new_access = create_access_token(user.id)
     new_refresh = create_refresh_token(user.id)
@@ -265,6 +275,7 @@ def create_user(
         password_hash=hashed,
         display_name=req.display_name,
         is_admin=False,
+        must_change_password=True,
     )
     db.add(user)
     db.commit()
@@ -299,5 +310,31 @@ def reset_user_password(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     user.password_hash = ph.hash(req.password)
+    user.must_change_password = True
+    user.refresh_token_invalidated_at = datetime.now(timezone.utc)
     db.commit()
     return None
+
+
+@router.put("/me/password", response_model=UserRead)
+def change_password(
+    req: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if len(req.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="New password must be at least 8 characters",
+        )
+    try:
+        ph.verify(current_user.password_hash, req.current_password)
+    except VerifyMismatchError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid current password")
+
+    current_user.password_hash = ph.hash(req.new_password)
+    current_user.must_change_password = False
+    current_user.refresh_token_invalidated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
