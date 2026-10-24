@@ -86,6 +86,17 @@ class _Adapter implements HttpClientAdapter {
 }
 
 void main() {
+  test('resolves same-origin auth requests to the browser origin', () {
+    expect(
+      resolveAuthBaseUrl(
+        '/api/v1',
+        isWeb: true,
+        currentUri: Uri.parse('http://localhost:8001/'),
+      ),
+      'http://localhost:8001',
+    );
+  });
+
   test('adds bearer authentication and retries after one refresh', () async {
     final storage = _MemoryStorage()
       ..access = 'old-access'

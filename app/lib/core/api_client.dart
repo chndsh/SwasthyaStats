@@ -134,12 +134,7 @@ class ApiClient {
   }
 
   String _authBaseUrl(String apiBaseUrl) {
-    final normalized = apiBaseUrl.replaceFirst(RegExp(r'/+$'), '');
-    if (normalized.endsWith('/api/v1')) {
-      final root = normalized.substring(0, normalized.length - '/api/v1'.length);
-      return root.isEmpty ? '/' : root;
-    }
-    return normalized;
+    return resolveAuthBaseUrl(apiBaseUrl);
   }
 
   void setBaseUrl(String url) {
@@ -147,6 +142,29 @@ class ApiClient {
   }
 
   String get baseUrl => dio.options.baseUrl;
+}
+
+String resolveAuthBaseUrl(
+  String apiBaseUrl, {
+  bool isWeb = kIsWeb,
+  Uri? currentUri,
+}) {
+  final normalized = apiBaseUrl.replaceFirst(RegExp(r'/+$'), '');
+  if (!normalized.endsWith('/api/v1')) {
+    return normalized;
+  }
+
+  final root = normalized.substring(0, normalized.length - '/api/v1'.length);
+  if (root.isNotEmpty) {
+    return root;
+  }
+  if (isWeb) {
+    final origin = (currentUri ?? Uri.base).origin;
+    if (origin.isNotEmpty) {
+      return origin;
+    }
+  }
+  return '/';
 }
 
 final apiClientProvider = Provider<ApiClient>((ref) {
