@@ -158,11 +158,24 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
 
   Widget _logoutButton(BuildContext context) {
     return Consumer(
-      builder: (context, ref, child) => FloatingActionButton.small(
-        heroTag: 'logout',
-        tooltip: 'Log out',
-        onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-        child: const Icon(Icons.logout),
+      builder: (context, ref, child) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (ref.watch(authControllerProvider).user?.isAdmin == true)
+            FloatingActionButton.small(
+              heroTag: 'admin-users',
+              tooltip: 'Admin users',
+              onPressed: () => context.go('/admin/users'),
+              child: const Icon(Icons.manage_accounts),
+            ),
+          const SizedBox(height: 8),
+          FloatingActionButton.small(
+            heroTag: 'logout',
+            tooltip: 'Log out',
+            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+            child: const Icon(Icons.logout),
+          ),
+        ],
       ),
     );
   }
