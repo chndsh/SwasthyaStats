@@ -109,6 +109,12 @@ Server:
 
 First admin is bootstrapped from env var `ADMIN_EMAIL` + `ADMIN_PASSWORD` at startup (idempotent — only runs if no users exist).
 
+Newly created and admin-reset accounts have a temporary password and must complete
+`PUT /auth/me/password` before accessing health-data routes. The response from
+`/auth/me` includes `must_change_password`; password changes clear the flag and
+invalidate the user's existing refresh tokens. Temporary passwords are never
+returned by user-list endpoints.
+
 ---
 
 ## Database Schema Changes
@@ -122,7 +128,9 @@ CREATE TABLE users (
     display_name VARCHAR(255),
     password_hash VARCHAR(255) NOT NULL,   -- Argon2id output
     is_admin    BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
+    refresh_token_invalidated_at TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX ix_users_email ON users(email);
 ```

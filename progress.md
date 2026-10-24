@@ -625,3 +625,4 @@ The multi-user design specifies bearer authentication for all existing endpoints
 - **API image build:** Passed
 - **Docker-backed backend suite:** Passed, `79 passed, 6 warnings`
 - **Notes:** Tests ran in an isolated Compose project without published host ports because ports `5432` and `8000` were already allocated.
+- **Additional hardening:** Admin create/reset and self-service password-change requests enforce an eight-character minimum at the API boundary.

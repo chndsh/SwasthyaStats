@@ -100,4 +100,61 @@ void main() {
       '/documents',
     );
   });
+
+  test('temporary-password users are redirected to change password', () {
+    expect(
+      authRedirect(
+        authState: AuthState.authenticated(
+          AuthUser(
+            id: 1,
+            email: 'user@example.com',
+            displayName: null,
+            isAdmin: false,
+            mustChangePassword: true,
+            createdAt: DateTime.utc(2026),
+          ),
+        ),
+        location: '/documents',
+        requestedLocation: '/documents',
+      ),
+      '/change-password?redirect=%2Fdocuments',
+    );
+    expect(
+      authRedirect(
+        authState: AuthState.authenticated(
+          AuthUser(
+            id: 1,
+            email: 'user@example.com',
+            displayName: null,
+            isAdmin: false,
+            mustChangePassword: true,
+            createdAt: DateTime.utc(2026),
+          ),
+        ),
+        location: '/change-password',
+        requestedLocation: '/change-password',
+      ),
+      isNull,
+    );
+  });
+
+  test('non-admin users cannot open admin users route', () {
+    expect(
+      authRedirect(
+        authState: AuthState.authenticated(
+          AuthUser(
+            id: 1,
+            email: 'user@example.com',
+            displayName: null,
+            isAdmin: false,
+            mustChangePassword: false,
+            createdAt: DateTime.utc(2026),
+          ),
+        ),
+        location: '/admin/users',
+        requestedLocation: '/admin/users',
+      ),
+      '/documents',
+    );
+  });
 }

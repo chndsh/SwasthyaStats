@@ -7,7 +7,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -37,17 +37,17 @@ class LogoutRequest(BaseModel):
 
 class UserCreateRequest(BaseModel):
     email: str
-    password: str
+    password: str = Field(min_length=8)
     display_name: Optional[str] = None
 
 
 class PasswordResetRequest(BaseModel):
-    password: str
+    password: str = Field(min_length=8)
 
 
 class PasswordChangeRequest(BaseModel):
     current_password: str
-    new_password: str
+    new_password: str = Field(min_length=8)
 
 
 class TokenResponse(BaseModel):
@@ -315,11 +315,6 @@ def change_password(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if len(req.new_password) < 8:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="New password must be at least 8 characters",
-        )
     try:
         ph.verify(current_user.password_hash, req.current_password)
     except VerifyMismatchError:

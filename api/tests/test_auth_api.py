@@ -132,7 +132,7 @@ def test_delete_user():
     del_email = f"del_{uuid.uuid4().hex[:8]}@test.com"
     create = client.post(
         "/auth/users",
-        json={"email": del_email, "password": "temp", "display_name": "Delete Me"},
+        json={"email": del_email, "password": "temporary123", "display_name": "Delete Me"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert create.status_code == 201
