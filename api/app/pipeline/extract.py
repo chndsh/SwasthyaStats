@@ -2,7 +2,7 @@ import re
 import json
 import logging
 from datetime import date
-from typing import List, Optional, Literal
+from typing import Dict, List, Optional, Literal, Sequence
 from pydantic import BaseModel, Field, ValidationError
 from app.llm.client import OpenAICompatClient, LlmResponse
 
@@ -30,6 +30,86 @@ class LabReportRaw(BaseModel):
     doctor_name: Optional[str] = None
     report_date: Optional[date] = None
     observations: List[LabObservationRaw] = Field(default_factory=list)
+
+
+def recover_observations_from_ocr(
+    redacted_text: str,
+    ocr_line_ids: Sequence[int],
+    known_test_names: Optional[Dict[str, str]] = None,
+) -> List[LabObservationRaw]:
+    """Recover only explicit, dictionary-backed result rows when extraction is empty."""
+    known = known_test_names or {
+        "platelet": "Platelet",
+        "platelets": "Platelet",
+        "plt": "Platelet",
+    }
+    aliases = {name.strip().lower(): label for name, label in known.items()}
+    recovered: List[LabObservationRaw] = []
+    line_pattern = re.compile(r"\[Line IDs:\s*\[([^\]]*)\]\]:\s*(.*)$", re.IGNORECASE)
+    number_pattern = re.compile(r"^[+-]?\d[\d,]*(?:\.\d+)?$")
+    qualitative_values = {
+        "absent",
+        "few",
+        "many",
+        "negative",
+        "non-reactive",
+        "normal",
+        "positive",
+        "present",
+        "reactive",
+    }
+
+    for fallback_id, raw_line in zip(ocr_line_ids, redacted_text.splitlines()):
+        match = line_pattern.match(raw_line.strip())
+        if not match:
+            continue
+        line_ids = [
+            int(value.strip())
+            for value in match.group(1).split(",")
+            if value.strip().isdigit()
+        ] or [fallback_id]
+        cells = [cell.strip() for cell in match.group(2).split("|")]
+        if len(cells) < 2:
+            continue
+        test_name = aliases.get(cells[0].lower())
+        if test_name is None:
+            continue
+        value_index = next(
+            (
+                index
+                for index, cell in enumerate(cells[1:], start=1)
+                if number_pattern.fullmatch(cell.replace(" ", ""))
+            ),
+            None,
+        )
+        if value_index is None:
+            value_text = next(
+                (
+                    cell
+                    for cell in cells[1:]
+                    if cell.lower() in qualitative_values
+                ),
+                None,
+            )
+            if value_text is None:
+                continue
+            recovered.append(
+                LabObservationRaw(
+                    test_name=test_name,
+                    value_text=value_text,
+                    line_ids=line_ids,
+                )
+            )
+            continue
+        recovered.append(
+            LabObservationRaw(
+                test_name=test_name,
+                value=float(cells[value_index].replace(",", "")),
+                unit=cells[value_index + 1] if value_index + 1 < len(cells) else None,
+                line_ids=line_ids,
+            )
+        )
+    return recovered
 
 
 EXTRACTION_SYSTEM_PROMPT = """You extract lab test results from OCR text of a medical lab report.
@@ -84,6 +164,7 @@ def extract_page(
     ocr_line_ids: List[int],
     client: OpenAICompatClient,
     prompt_version: str = "v1",
+    known_test_names: Optional[Dict[str, str]] = None,
 ) -> LabReportRaw:
     """Extracts lab observations from a single page of redacted OCR text.
 
@@ -112,7 +193,14 @@ def extract_page(
             )
             raw_text = _clean_json_markdown(resp.content)
             data = json.loads(raw_text)
-            return LabReportRaw.model_validate(data)
+            report = LabReportRaw.model_validate(data)
+            if not report.observations:
+                report.observations = recover_observations_from_ocr(
+                    redacted_text,
+                    ocr_line_ids,
+                    known_test_names,
+                )
+            return report
         except (json.JSONDecodeError, ValidationError) as err:
             last_error = err
             logger.warning(f"Extraction attempt {attempt + 1} parse error: {err}")

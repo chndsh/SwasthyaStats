@@ -326,6 +326,16 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
                     line_ids,
                     client=client,
                     prompt_version=prompt_version,
+                    known_test_names={
+                        alias.lower(): info.get("name", canon_id)
+                        for canon_id, info in lab_dict.items()
+                        for alias in [
+                            canon_id,
+                            info.get("name", ""),
+                            *info.get("aliases", []),
+                        ]
+                        if alias
+                    },
                 )
             except (RuntimeError, ValueError) as rerr:
                 logger.warning(f"Extraction rate limited or keys exhausted for doc {doc_id}: {rerr}")

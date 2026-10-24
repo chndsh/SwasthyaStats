@@ -1,6 +1,11 @@
 import json
 from unittest.mock import MagicMock
-from app.pipeline.extract import extract_page, LabReportRaw, ExtractionFailed
+from app.pipeline.extract import (
+    extract_page,
+    recover_observations_from_ocr,
+    LabReportRaw,
+    ExtractionFailed,
+)
 from app.llm.client import LlmResponse
 
 
@@ -92,3 +97,16 @@ def test_extract_page_raises_extraction_failed_on_invalid_json():
         assert False, "Should have raised ExtractionFailed"
     except ExtractionFailed:
         pass
+
+
+def test_recover_observations_from_page_two_ocr_when_llm_returns_empty():
+    result = recover_observations_from_ocr(
+        "[Line IDs: [69]]: PLATELET | 4,04,000 | /cumm\n"
+        "[Line IDs: [70]]: COMMENT | correlate clinically",
+        ocr_line_ids=[69, 70],
+    )
+
+    assert len(result) == 1
+    assert result[0].test_name == "Platelet"
+    assert result[0].value == 404000
+    assert result[0].line_ids == [69]

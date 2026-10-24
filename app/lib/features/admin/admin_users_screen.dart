@@ -171,7 +171,10 @@ class AdminUsersScreen extends ConsumerWidget {
     final currentUserId = ref.watch(authControllerProvider).user?.id;
     final state = ref.watch(adminUsersControllerProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin users')),
+      appBar: AppBar(
+        leading: const BackButton(),
+        title: const Text('Admin users'),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _create(context, ref),
         child: const Icon(Icons.person_add),

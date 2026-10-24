@@ -626,3 +626,24 @@ The multi-user design specifies bearer authentication for all existing endpoints
 - **Docker-backed backend suite:** Passed, `79 passed, 6 warnings`
 - **Notes:** Tests ran in an isolated Compose project without published host ports because ports `5432` and `8000` were already allocated.
 - **Additional hardening:** Admin create/reset and self-service password-change requests enforce an eight-character minimum at the API boundary.
+
+## Task: Preserve OCR observations when page extraction is empty
+
+- **Date:** 2026-10-25
+- **Status:** Completed with legacy-test limitation
+
+### Changes
+
+- Added conservative OCR recovery when structured extraction returns no observations.
+- Recovery accepts only explicit rows backed by known lab-test names and numeric or qualitative result values, preserving platelet OCR such as `4,04,000` without importing unsupported comments.
+- Added an Admin Users back button.
+- Added backend OCR and Flutter widget regression coverage.
+
+### Verification
+
+- Backend extraction regression: passed, `6 passed`.
+- Flutter tests: passed, `36 tests`.
+- Flutter analyzer: passed.
+- Flutter WASM build: passed.
+- Browser stack rebuilt from this branch on port `8001`; `/health`, `/`, admin login, and authenticated `/auth/users` returned `200`.
+- Legacy `test_extraction_pipeline.py` remains blocked because its pre-existing fixture constructs the migrated `Patient` alias with removed `name`/legacy fields.
