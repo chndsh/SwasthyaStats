@@ -14,12 +14,12 @@ class AdminUser {
   });
 
   factory AdminUser.fromJson(Map<String, dynamic> json) => AdminUser(
-        id: json['id'] as int,
-        email: json['email'] as String,
-        displayName: json['display_name'] as String?,
-        isAdmin: json['is_admin'] as bool? ?? false,
-        mustChangePassword: json['must_change_password'] as bool? ?? false,
-      );
+    id: json['id'] as int,
+    email: json['email'] as String,
+    displayName: json['display_name'] as String?,
+    isAdmin: json['is_admin'] as bool? ?? false,
+    mustChangePassword: json['must_change_password'] as bool? ?? false,
+  );
 }
 
 class TemporaryPasswordResponse {

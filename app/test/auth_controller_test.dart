@@ -38,7 +38,10 @@ class _FakeStorage implements TokenStorage {
 }
 
 class _FakeAuthService implements AuthService {
-  TokenPair pair = const TokenPair(accessToken: 'access', refreshToken: 'refresh');
+  TokenPair pair = const TokenPair(
+    accessToken: 'access',
+    refreshToken: 'refresh',
+  );
   AuthUser user = AuthUser(
     id: 1,
     email: 'user@example.com',

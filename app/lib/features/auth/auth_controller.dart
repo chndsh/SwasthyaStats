@@ -1,14 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/api_client.dart';
 import 'auth_model.dart';
 import 'token_storage.dart';
 
 abstract class AuthService {
-  Future<TokenPair> login({
-    required String email,
-    required String password,
-  });
+  Future<TokenPair> login({required String email, required String password});
 
   Future<AuthUser> currentUser();
 
@@ -24,10 +22,7 @@ class TokenPair {
   final String accessToken;
   final String refreshToken;
 
-  const TokenPair({
-    required this.accessToken,
-    required this.refreshToken,
-  });
+  const TokenPair({required this.accessToken, required this.refreshToken});
 
   factory TokenPair.fromJson(Map<String, dynamic> json) {
     return TokenPair(
@@ -76,10 +71,7 @@ class DioAuthService implements AuthService {
   }) async {
     final response = await _client.authDio.put(
       '/auth/me/password',
-      data: {
-        'current_password': currentPassword,
-        'new_password': newPassword,
-      },
+      data: {'current_password': currentPassword, 'new_password': newPassword},
     );
     return AuthUser.fromJson(Map<String, dynamic>.from(response.data as Map));
   }
@@ -116,10 +108,7 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  Future<bool> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> login({required String email, required String password}) async {
     state = const AuthState.loading();
     try {
       final tokens = await authService.login(email: email, password: password);
@@ -148,28 +137,28 @@ class AuthController extends StateNotifier<AuthState> {
       if (refreshToken != null && refreshToken.isNotEmpty) {
         await authService.logout(refreshToken: refreshToken);
       }
-
-      Future<bool> changePassword({
-        required String currentPassword,
-        required String newPassword,
-      }) async {
-        try {
-          state = AuthState.authenticated(
-            await authService.changePassword(
-              currentPassword: currentPassword,
-              newPassword: newPassword,
-            ),
-          );
-          return true;
-        } catch (_) {
-          return false;
-        }
-      }
     } catch (_) {
       // Local credentials must still be removed when the server is unavailable.
     } finally {
       await tokenStorage.clear();
       state = const AuthState.unauthenticated();
+    }
+  }
+
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      state = AuthState.authenticated(
+        await authService.changePassword(
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        ),
+      );
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -188,12 +177,13 @@ class AuthController extends StateNotifier<AuthState> {
   }
 }
 
-final authControllerProvider =
-    StateNotifierProvider<AuthController, AuthState>((ref) {
-  final client = ref.watch(apiClientProvider);
-  return AuthController(
-    tokenStorage: ref.watch(tokenStorageProvider),
-    authService: ref.watch(authServiceProvider),
-    apiClient: client,
-  );
-});
+final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
+  (ref) {
+    final client = ref.watch(apiClientProvider);
+    return AuthController(
+      tokenStorage: ref.watch(tokenStorageProvider),
+      authService: ref.watch(authServiceProvider),
+      apiClient: client,
+    );
+  },
+);

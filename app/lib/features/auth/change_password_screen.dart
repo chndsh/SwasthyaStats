@@ -8,7 +8,8 @@ class ChangePasswordScreen extends ConsumerStatefulWidget {
   const ChangePasswordScreen({super.key});
 
   @override
-  ConsumerState<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+  ConsumerState<ChangePasswordScreen> createState() =>
+      _ChangePasswordScreenState();
 }
 
 class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
@@ -33,17 +34,23 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       _loading = true;
       _error = null;
     });
-    final success = await ref.read(authControllerProvider.notifier).changePassword(
+    final success = await ref
+        .read(authControllerProvider.notifier)
+        .changePassword(
           currentPassword: _current.text,
           newPassword: _next.text,
         );
     if (!mounted) return;
     setState(() => _loading = false);
     if (success) {
-      final redirect = GoRouterState.of(context).uri.queryParameters['redirect'];
+      final redirect = GoRouterState.of(context)
+          .uri
+          .queryParameters['redirect'];
       context.go(redirect ?? '/documents');
     } else {
-      setState(() => _error = 'Unable to change password. Check your current password and try again.');
+      setState(
+        () => _error = 'Unable to change password. Check your current password and try again.',
+      );
     }
   }
 
@@ -67,29 +74,47 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   TextFormField(
                     controller: _current,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Current password'),
-                    validator: (value) => value == null || value.isEmpty ? 'Enter your current password' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Current password',
+                    ),
+                    validator: (value) => value == null || value.isEmpty
+                        ? 'Enter your current password'
+                        : null,
                   ),
                   TextFormField(
                     controller: _next,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'New password'),
-                    validator: (value) => value == null || value.length < 8 ? 'Use at least 8 characters' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'New password',
+                    ),
+                    validator: (value) => value == null || value.length < 8
+                        ? 'Use at least 8 characters'
+                        : null,
                   ),
                   TextFormField(
                     controller: _confirm,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Confirm new password'),
-                    validator: (value) => value != _next.text ? 'Passwords do not match' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm new password',
+                    ),
+                    validator: (value) =>
+                        value != _next.text ? 'Passwords do not match' : null,
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
-                    Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 20),
                   FilledButton(
                     onPressed: _loading ? null : _submit,
-                    child: _loading ? const CircularProgressIndicator() : const Text('Change password'),
+                    child: _loading
+                        ? const CircularProgressIndicator()
+                        : const Text('Change password'),
                   ),
                 ],
               ),

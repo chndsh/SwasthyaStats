@@ -1,11 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum AuthStatus {
-  loading,
-  unauthenticated,
-  authenticated,
-  error,
-}
+enum AuthStatus { loading, unauthenticated, authenticated, error }
 
 class AuthUser {
   final int id;
@@ -41,33 +36,21 @@ class AuthState {
   final AuthUser? user;
   final String? errorMessage;
 
-  const AuthState._({
-    required this.status,
-    this.user,
-    this.errorMessage,
-  });
+  const AuthState._({required this.status, this.user, this.errorMessage});
 
   const AuthState.loading() : this._(status: AuthStatus.loading);
 
   const AuthState.unauthenticated({String? errorMessage})
-      : this._(
-          status: AuthStatus.unauthenticated,
-          errorMessage: errorMessage,
-        );
+    : this._(status: AuthStatus.unauthenticated, errorMessage: errorMessage);
 
   const AuthState.authenticated(AuthUser user)
-      : this._(
-          status: AuthStatus.authenticated,
-          user: user,
-        );
+    : this._(status: AuthStatus.authenticated, user: user);
 
   const AuthState.error(String message)
-      : this._(
-          status: AuthStatus.error,
-          errorMessage: message,
-        );
+    : this._(status: AuthStatus.error, errorMessage: message);
 
-  bool get isAuthenticated => status == AuthStatus.authenticated && user != null;
+  bool get isAuthenticated =>
+      status == AuthStatus.authenticated && user != null;
 
   @override
   bool operator ==(Object other) =>

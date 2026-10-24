@@ -18,16 +18,33 @@ class AdminUsersScreen extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: email, decoration: const InputDecoration(labelText: 'Email')),
-            TextField(controller: name, decoration: const InputDecoration(labelText: 'Display name')),
-            TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: 'Temporary password')),
+            TextField(
+              controller: email,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Display name'),
+            ),
+            TextField(
+              controller: password,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Temporary password',
+              ),
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () async {
-              final ok = await ref.read(adminUsersControllerProvider.notifier).create(
+              final ok = await ref
+                  .read(adminUsersControllerProvider.notifier)
+                  .create(
                     email: email.text,
                     password: password.text,
                     displayName: name.text,
@@ -43,18 +60,26 @@ class AdminUsersScreen extends ConsumerWidget {
     name.dispose();
     password.dispose();
     if (submitted == true && context.mounted) {
-      final temporary = ref.read(adminUsersControllerProvider).temporaryPassword;
+      final temporary = ref
+          .read(adminUsersControllerProvider)
+          .temporaryPassword;
       if (temporary != null) {
         await showDialog<void>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Temporary password'),
             content: SelectableText(temporary),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Done'),
+              ),
+            ],
           ),
         );
-        ref.read(adminUsersControllerProvider.notifier).state =
-            ref.read(adminUsersControllerProvider).copyWith(clearTemporaryPassword: true);
+        ref
+            .read(adminUsersControllerProvider.notifier)
+            .clearTemporaryPassword();
       }
     }
   }
@@ -71,14 +96,19 @@ class AdminUsersScreen extends ConsumerWidget {
       ),
       body: state.users.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Unable to load users: $error')),
+        error: (error, _) =>
+            Center(child: Text('Unable to load users: $error')),
         data: (users) => RefreshIndicator(
           onRefresh: ref.read(adminUsersControllerProvider.notifier).load,
           child: ListView(
             children: users
                 .map(
                   (user) => ListTile(
-                    title: Text(user.displayName?.isNotEmpty == true ? user.displayName! : user.email),
+                    title: Text(
+                      user.displayName?.isNotEmpty == true
+                          ? user.displayName!
+                          : user.email,
+                    ),
                     subtitle: Text(user.email),
                     trailing: user.id == currentUserId
                         ? const Text('You')
@@ -86,7 +116,9 @@ class AdminUsersScreen extends ConsumerWidget {
                             tooltip: 'Delete user',
                             icon: const Icon(Icons.delete_outline),
                             onPressed: () async {
-                              await ref.read(adminUsersControllerProvider.notifier).delete(user.id);
+                              await ref
+                                  .read(adminUsersControllerProvider.notifier)
+                                  .delete(user.id);
                             },
                           ),
                   ),

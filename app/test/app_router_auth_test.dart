@@ -31,19 +31,17 @@ class _Service implements AuthService {
   Future<TokenPair> login({
     required String email,
     required String password,
-  }) async =>
-      const TokenPair(accessToken: 'access', refreshToken: 'refresh');
+  }) async => const TokenPair(accessToken: 'access', refreshToken: 'refresh');
 
   @override
   Future<AuthUser> currentUser() async => AuthUser(
-        id: 1,
-        email: 'user@example.com',
-        displayName: null,
-        isAdmin: false,
-        mustChangePassword: false,
-        mustChangePassword: false,
-        createdAt: DateTime.utc(2026),
-      );
+    id: 1,
+    email: 'user@example.com',
+    displayName: null,
+    isAdmin: false,
+    mustChangePassword: false,
+    createdAt: DateTime.utc(2026),
+  );
 
   @override
   Future<void> logout({required String refreshToken}) async {}
@@ -92,6 +90,7 @@ void main() {
             email: 'user@example.com',
             displayName: null,
             isAdmin: false,
+            mustChangePassword: false,
             createdAt: DateTime.utc(2026),
           ),
         ),
