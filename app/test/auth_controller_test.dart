@@ -44,10 +44,12 @@ class _FakeAuthService implements AuthService {
     email: 'user@example.com',
     displayName: 'User',
     isAdmin: false,
+    mustChangePassword: false,
     createdAt: DateTime.utc(2026, 1, 1),
   );
   Object? loginError;
   Object? logoutError;
+  Object? passwordError;
   int currentUserCalls = 0;
 
   @override
@@ -68,6 +70,23 @@ class _FakeAuthService implements AuthService {
   @override
   Future<void> logout({required String refreshToken}) async {
     if (logoutError != null) throw logoutError!;
+  }
+
+  @override
+  Future<AuthUser> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    if (passwordError != null) throw passwordError!;
+    user = AuthUser(
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      isAdmin: user.isAdmin,
+      mustChangePassword: false,
+      createdAt: user.createdAt,
+    );
+    return user;
   }
 }
 

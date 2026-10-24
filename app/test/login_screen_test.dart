@@ -59,9 +59,16 @@ class _FakeAuthService implements AuthService {
         email: 'user@example.com',
         displayName: null,
         isAdmin: false,
+        mustChangePassword: false,
         createdAt: DateTime.utc(2026),
       );
 
   @override
   Future<void> logout({required String refreshToken}) async {}
+
+  @override
+  Future<AuthUser> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async => currentUser();
 }

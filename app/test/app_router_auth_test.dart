@@ -40,11 +40,19 @@ class _Service implements AuthService {
         email: 'user@example.com',
         displayName: null,
         isAdmin: false,
+        mustChangePassword: false,
+        mustChangePassword: false,
         createdAt: DateTime.utc(2026),
       );
 
   @override
   Future<void> logout({required String refreshToken}) async {}
+
+  @override
+  Future<AuthUser> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async => currentUser();
 }
 
 class _RouterHost extends ConsumerWidget {

@@ -12,6 +12,11 @@ abstract class AuthService {
 
   Future<AuthUser> currentUser();
 
+  Future<AuthUser> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
+
   Future<void> logout({required String refreshToken});
 }
 
@@ -62,6 +67,21 @@ class DioAuthService implements AuthService {
       '/auth/logout',
       data: {'refresh_token': refreshToken},
     );
+  }
+
+  @override
+  Future<AuthUser> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await _client.authDio.put(
+      '/auth/me/password',
+      data: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+    );
+    return AuthUser.fromJson(Map<String, dynamic>.from(response.data as Map));
   }
 }
 
@@ -127,6 +147,23 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       if (refreshToken != null && refreshToken.isNotEmpty) {
         await authService.logout(refreshToken: refreshToken);
+      }
+
+      Future<bool> changePassword({
+        required String currentPassword,
+        required String newPassword,
+      }) async {
+        try {
+          state = AuthState.authenticated(
+            await authService.changePassword(
+              currentPassword: currentPassword,
+              newPassword: newPassword,
+            ),
+          );
+          return true;
+        } catch (_) {
+          return false;
+        }
       }
     } catch (_) {
       // Local credentials must still be removed when the server is unavailable.

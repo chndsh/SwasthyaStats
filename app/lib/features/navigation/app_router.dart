@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
 import '../auth/login_screen.dart';
+import '../auth/change_password_screen.dart';
+import '../admin/admin_users_screen.dart';
 import '../auth/auth_model.dart';
 import '../settings/settings_screen.dart';
 import '../documents/documents_screen.dart';
@@ -234,6 +236,14 @@ GoRouter createAppRouter(WidgetRef ref) {
         path: '/login',
         builder: (context, state) => const LoginScreen(),
       ),
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordScreen(),
+      ),
+      GoRoute(
+        path: '/admin/users',
+        builder: (context, state) => const AdminUsersScreen(),
+      ),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
       builder: (context, state, child) => ScaffoldWithResponsiveNav(child: child),
@@ -289,11 +299,24 @@ String? authRedirect({
   String? redirectTarget,
 }) {
   final isLogin = location == '/login';
+  final isChangePassword = location == '/change-password';
   if (authState.status == AuthStatus.loading) {
     return isLogin ? null : '/login';
   }
   if (!authState.isAuthenticated && !isLogin) {
     return '/login?redirect=${Uri.encodeComponent(requestedLocation)}';
+  }
+  if (authState.isAuthenticated && authState.user!.mustChangePassword) {
+    if (!isChangePassword) {
+      return '/change-password?redirect=${Uri.encodeComponent(requestedLocation)}';
+    }
+    return null;
+  }
+  if (authState.isAuthenticated && isChangePassword) {
+    return redirectTarget ?? '/documents';
+  }
+  if (location == '/admin/users' && !authState.user!.isAdmin) {
+    return '/documents';
   }
   if (authState.isAuthenticated && isLogin) {
     return redirectTarget ?? '/documents';

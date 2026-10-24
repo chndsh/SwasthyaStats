@@ -12,6 +12,7 @@ class AuthUser {
   final String email;
   final String? displayName;
   final bool isAdmin;
+  final bool mustChangePassword;
   final DateTime createdAt;
 
   const AuthUser({
@@ -19,6 +20,7 @@ class AuthUser {
     required this.email,
     required this.displayName,
     required this.isAdmin,
+    required this.mustChangePassword,
     required this.createdAt,
   });
 
@@ -28,6 +30,7 @@ class AuthUser {
       email: json['email'] as String,
       displayName: json['display_name'] as String?,
       isAdmin: json['is_admin'] as bool? ?? false,
+      mustChangePassword: json['must_change_password'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
