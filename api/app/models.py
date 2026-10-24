@@ -48,6 +48,8 @@ class User(Base):
     display_name = Column(String(255), nullable=True)
     password_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
+    must_change_password = Column(Boolean, default=False, nullable=False)
+    refresh_token_invalidated_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
@@ -209,4 +211,3 @@ class LlmCall(Base):
 # Backward compatibility aliases during transition
 AppSetting = UserSetting
 Patient = User
-
