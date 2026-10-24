@@ -32,7 +32,7 @@ class AdminUsersController extends StateNotifier<AdminUsersState> {
 
   Future<void> load() async {
     try {
-      final response = await _client.dio.get('/auth/users');
+      final response = await _client.authDio.get('/auth/users');
       final users = (response.data as List)
           .map(
             (item) =>
@@ -51,7 +51,7 @@ class AdminUsersController extends StateNotifier<AdminUsersState> {
     String? displayName,
   }) async {
     try {
-      final response = await _client.dio.post(
+      final response = await _client.authDio.post(
         '/auth/users',
         data: {
           'email': email,
@@ -74,7 +74,7 @@ class AdminUsersController extends StateNotifier<AdminUsersState> {
 
   Future<bool> reset(int userId, String password) async {
     try {
-      await _client.dio.put(
+      await _client.authDio.put(
         '/auth/users/$userId/password',
         data: {'password': password},
       );
@@ -88,7 +88,7 @@ class AdminUsersController extends StateNotifier<AdminUsersState> {
 
   Future<bool> delete(int userId) async {
     try {
-      await _client.dio.delete('/auth/users/$userId');
+      await _client.authDio.delete('/auth/users/$userId');
       await load();
       return true;
     } on DioException {
