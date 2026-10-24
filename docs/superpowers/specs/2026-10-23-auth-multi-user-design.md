@@ -293,7 +293,18 @@ Becomes per-user LLM settings (not global). Each user sees and manages only thei
 
 ### New: Admin Screen (host only)
 
-Simple screen visible only to `is_admin = true` users. Lists users, create user form (email + display name + initial password), delete user button.
+Simple screen visible only to `is_admin = true` users. Lists users, creates users, resets passwords, and deletes users other than the current admin.
+
+### Temporary-password onboarding
+
+The `users` table includes `must_change_password`, defaulting to `false`.
+
+- Admin-created users receive a temporary password and `must_change_password = true`.
+- Admin password resets set `must_change_password = true`.
+- A user may authenticate with a temporary password, but the router sends them to `/change-password` before allowing access to Documents, Labs, Ask, or Settings.
+- `PUT /auth/me/password` verifies the current password, stores a new Argon2id hash, clears `must_change_password`, and invalidates the user's existing refresh tokens.
+- Temporary passwords are displayed once in the admin interface and must be delivered to the user through a secure channel. They are never returned by user-list endpoints or written to logs.
+- Admins cannot delete their own account.
 
 ---
 

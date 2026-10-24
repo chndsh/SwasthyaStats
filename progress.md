@@ -567,3 +567,49 @@ Implement Week 4 deliverables according to `prototype-architecture.md`:
 | Guest LLM keys hidden from host | ✅ |
 | Host cannot read data during processing | ❌ (disclosed, unavoidable) |
 | Chunk text hidden from host | ❌ (disclosed, needed for RAG) |
+
+---
+
+## Task: Docker backend and multi-user auth verification
+
+- **Date:** 2026-10-24
+- **Branch:** `chndsh-verify-auth-docker-tests`
+- **Status:** Verification completed with one unresolved endpoint mismatch
+
+### Verification
+
+| Check | Result | Notes |
+|---|---|---|
+| Docker image build | Passed | `docker compose up -d --build` built the API image successfully |
+| Isolated Docker stack | Passed | Started with host port publishing disabled because ports `5432` and `8000` were already occupied by another stack |
+| Container health smoke test | Passed | `GET /health` returned `200` |
+| Multi-user auth and isolation tests | Passed | `8 passed, 5 warnings` |
+| Full backend test suite | Passed | `71 passed, 5 warnings` |
+| Direct HTTP auth smoke flow | Passed | Health, login, `/auth/me`, bearer-authenticated documents, and unauthenticated rejection verified |
+| Settings JWT migration | Failed | `/api/v1/settings` still requires the legacy `X-API-Key` header and rejects JWT-only requests |
+
+### Remaining Risk
+
+The multi-user design specifies bearer authentication for all existing endpoints, but the settings router still uses the legacy API-key dependency. This was observed during direct HTTP smoke testing and was not changed during this verification-only task.
+
+---
+
+## Task: Admin user management and temporary-password onboarding
+
+- **Date:** 2026-10-24
+- **Status:** Design and implementation plan complete
+
+### Decisions
+
+- Add `users.must_change_password`.
+- Force password changes after user creation and admin password reset.
+- Add admin UI for user listing, creation, password reset, and deletion.
+- Add a guarded change-password screen before access to health-data routes.
+- Invalidate existing refresh tokens after password changes and resets.
+- Keep temporary passwords transient and never return them from list endpoints or log them.
+
+### Documents
+
+- Design: `docs/plans/2026-10-24-admin-user-management-design.md`
+- Implementation plan: `docs/plans/2026-10-24-admin-user-management.md`
+- Auth spec updated: `docs/superpowers/specs/2026-10-23-auth-multi-user-design.md`
