@@ -13,6 +13,8 @@ from app.models import Document
 from app.routers.auth import bootstrap_admin
 from sqlalchemy.orm import Session
 from sqlalchemy import text as sa_text
+import re
+import datetime
 
 
 @asynccontextmanager
@@ -44,6 +46,45 @@ async def lifespan(app: FastAPI):
             cid = _find_canonical_test_id(obs.test_name, lab_dict)
             if cid:
                 obs.canonical_test_id = cid
+
+        # Backfill missing doc_date on documents from ocr_lines or created_at
+        docs_without_date = session.query(Document).filter(Document.doc_date == None).all()
+        date_pat1 = re.compile(r"\b(20\d\d)[/-](\d{1,2})[/-](\d{1,2})\b")
+        for doc in docs_without_date:
+            extracted_date = None
+            if doc.ocr_lines and isinstance(doc.ocr_lines, list):
+                prev_label = ""
+                for l in doc.ocr_lines:
+                    txt = (l.get("text", "") if isinstance(l, dict) else str(l)).strip()
+                    low = txt.lower()
+                    m = date_pat1.search(txt)
+                    if m:
+                        try:
+                            d = datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                            if "collect" in low or "collect" in prev_label:
+                                extracted_date = d
+                                break
+                            elif ("report" in low or "report" in prev_label) and not extracted_date:
+                                extracted_date = d
+                            elif "birth" not in prev_label and "dob" not in prev_label and not extracted_date:
+                                extracted_date = d
+                        except ValueError:
+                            pass
+                    prev_label = low
+            if not extracted_date and doc.created_at:
+                extracted_date = doc.created_at.date()
+            if extracted_date:
+                doc.doc_date = extracted_date
+
+        session.commit()
+
+        # Backfill missing collected_at on observations from parent document
+        session.execute(sa_text("""
+            UPDATE observations o
+            SET collected_at = COALESCE(d.doc_date, d.created_at::date, CURRENT_DATE)
+            FROM documents d
+            WHERE o.document_id = d.id AND o.collected_at IS NULL;
+        """))
         session.commit()
     yield
 

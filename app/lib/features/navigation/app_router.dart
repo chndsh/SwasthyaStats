@@ -382,9 +382,15 @@ GoRouter createAppRouter(WidgetRef ref) {
               GoRoute(
                 path: ':test',
                 builder: (context, state) {
-                  final test = Uri.decodeComponent(
-                    state.pathParameters['test'] ?? '',
-                  );
+                  final rawTest = state.pathParameters['test'] ?? '';
+                  String test = rawTest;
+                  try {
+                    if (rawTest.contains('%')) {
+                      test = Uri.decodeComponent(rawTest);
+                    }
+                  } catch (_) {
+                    test = rawTest;
+                  }
                   return LabDetailScreen(testName: test);
                 },
               ),

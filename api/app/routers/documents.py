@@ -246,6 +246,15 @@ def confirm_document(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
+    eff_date = doc.doc_date or (doc.created_at.date() if doc.created_at else date.today())
+    if not doc.doc_date:
+        doc.doc_date = eff_date
+
+    db.query(Observation).filter(
+        Observation.document_id == document_id,
+        Observation.collected_at.is_(None),
+    ).update({"collected_at": eff_date}, synchronize_session=False)
+
     updated = (
         db.query(Observation)
         .filter(Observation.document_id == document_id, Observation.status == "pending")

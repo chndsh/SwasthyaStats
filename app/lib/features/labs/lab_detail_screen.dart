@@ -230,6 +230,9 @@ class LabDetailScreen extends ConsumerWidget {
 
     // Map points to FlSpot index (0 .. points.length - 1)
     final spots = List.generate(points.length, (i) => FlSpot(i.toDouble(), points[i].value));
+    final isSinglePoint = points.length == 1;
+    final minX = isSinglePoint ? -0.5 : 0.0;
+    final maxX = isSinglePoint ? 0.5 : (points.length - 1).toDouble();
 
     return Card(
       elevation: 0,
@@ -269,8 +272,8 @@ class LabDetailScreen extends ConsumerWidget {
                 LineChartData(
                   minY: minY,
                   maxY: maxY,
-                  minX: 0,
-                  maxX: (points.length - 1).toDouble() > 0 ? (points.length - 1).toDouble() : 1.0,
+                  minX: minX,
+                  maxX: maxX,
                   rangeAnnotations: RangeAnnotations(
                     horizontalRangeAnnotations: (data.refLow != null && data.refHigh != null)
                         ? [
@@ -367,6 +370,21 @@ class LabDetailScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            if (isSinglePoint) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: Colors.grey.shade600),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '1 reading recorded. Trend line connects across multiple reports over time.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

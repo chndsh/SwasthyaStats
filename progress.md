@@ -837,9 +837,51 @@ The multi-user design specifies bearer authentication for all existing endpoints
 ### Verification
 - Backend test suite: `83 passed, 5 warnings`.
 - Commit: `f599a62`
-\n## 2026-10-25 — Logo integration\n- Added logo.png from /home/chandish/Documents/SwasthyaStats/logo.png as official branding asset\n- Registered in pubspec.yaml under assets/images/\n- Login screen: logo displayed above sign-in title\n- NavigationRail (tablet/desktop sidebar): logo replaces health_and_safety icon\n- Web: favicon.png, Icon-192.png, Icon-512.png, Icon-maskable-192.png, Icon-maskable-512.png all replaced with logo.png\n- flutter analyze: No issues found
+## 2026-10-25 — Logo integration
+- Added logo.png from /home/chandish/Documents/SwasthyaStats/logo.png as official branding asset
+- Registered in pubspec.yaml under assets/images/
+- Login screen: logo displayed above sign-in title
+- NavigationRail (tablet/desktop sidebar): logo replaces health_and_safety icon
+- Web: favicon.png, Icon-192.png, Icon-512.png, Icon-maskable-192.png, Icon-maskable-512.png all replaced with logo.png
+- flutter analyze: No issues found
+
 ## 2026-10-25 — README update (openGym-style & Groq honest documentation)
 - Restructured README.md to match the layout of DuarteSantos8/openGym (Header/Badges, Why SwasthyaStats, Quick Start, Features, Architecture & How It Works, Configuration & Providers, Development & Testing, Medical Disclaimer).
 - Explicitly documented Groq as the default LLM provider (Groq LPU endpoint, key pooling, 5s multi-page pacing, Qwen OTPM capping).
 - Documented exact files and functions where AI output is consumed programmatically (extract_page in extract.py, score_observations in normalize.py, ReviewController.build in Flutter review_controller.dart, embed_document in embed_worker.py, ask/execute_tool/parse_citations in orchestrator.py, ask_controller.dart in Flutter).
+
+## 2026-10-25 — Fix: Trend graphs not rendering for extracted lab data
+
+- **Status:** Completed
+
+### Root Cause
+1. Observations were missing collection dates (`collected_at: NULL`).
+   - `EXTRACTION_SYSTEM_PROMPT` in `api/app/pipeline/extract.py` did not explicitly instruct the LLM to extract specimen/report collection dates into `report_date` in `YYYY-MM-DD` format.
+   - When PDFs had dates with slashes, times, or AD suffixes (e.g. `2025/04/22 AD 2082/01/09 10.22.30`), the extraction pipeline lacked regex date parsing fallbacks.
+   - Without an extracted `report_date`, `obs_rec.collected_at` was saved as `None`.
+2. `/api/v1/charts/lab` strictly filters `Observation.collected_at.isnot(None)` to generate time-series coordinates. Because all observations had `collected_at = NULL`, the endpoint returned `points: []`.
+3. Flutter's `LabDetailScreen` checks `if (chartData.points.isEmpty)` and displayed "No readings available for [Test]", hiding the chart even though confirmed readings existed in the database and appeared in the Labs list.
+
+### Changes Made
+| File | Change |
+|---|---|
+| `api/app/pipeline/extract.py` | Added `@field_validator("report_date", mode="before")` on `LabReportRaw` to parse dates formatted with slashes (`YYYY/MM/DD` or `DD/MM/YYYY`) or suffixes. Added `extract_date_from_text()` with context-aware OCR keyword matching (`collect`, `report`, `specimen`, skipping `dob`/`birth`). Updated `EXTRACTION_SYSTEM_PROMPT` with instructions to extract `report_date`. |
+| `api/app/services/documents.py` | In `process_extraction()`, assigned `eff_date` from `report.report_date or doc.doc_date or doc.created_at.date()` and updated `doc.doc_date` and `obs_rec.collected_at`. |
+| `api/app/routers/documents.py` | In `confirm_document()`, ensured any pending observations with `collected_at IS NULL` are backfilled with `doc.doc_date or doc.created_at.date()` prior to confirmation. |
+| `api/app/main.py` | Added automated startup backfill in `lifespan` to extract missing dates from `ocr_lines` for documents and set `observations.collected_at` from `COALESCE(d.doc_date, d.created_at::date, CURRENT_DATE)`. |
+| `app/lib/features/labs/lab_detail_screen.dart` | Fixed single data point bounds (`minX: -0.5, maxX: 0.5`) so individual readings center properly on the chart rather than clipping against the Y-axis. Added an informative helper note explaining that trend lines connect across multiple dates. |
+| `app/lib/features/navigation/app_router.dart` | Protected path parameter decoding against unencoded `%` or special characters in test names. |
+
+### Verification
+- Executed database backfill: all 57 confirmed observations in the database now have accurate collection dates (`2025-04-22`, `2025-05-05`, `2025-08-08`, `2026-07-21`).
+- Verified `/api/v1/charts/lab?test=Hemoglobin` returns 2 chronological points (`2025-04-22`: 14.3, `2026-07-21`: 14.8) with reference bounds (13.0 - 17.0 gm/dl).
+- Verified `/api/v1/charts/lab?test=C-Reactive+Protein+(CRP)` returns 2 chronological points (`2025-04-22`: 66.1, `2026-07-21`: 2.7) with reference bounds (0.0 - 6.0 mg/).
+- Flutter test suite: `40 passed, 0 failed`.
+- Flutter analyze: `No issues found!`.
+- Flutter Web Wasm build: compiled successfully (`✓ Built build/web` in 37.9s).
+
+## 2026-10-25 — Server Startup Verification
+- Verified Docker containers `swasthyastats-api-1` and `swasthyastats-postgres-1` are running and healthy.
+- Verified backend `/health` endpoint and `/auth/login` authentication.
+- Verified Flutter Web application static mount at `http://localhost:8000/`.
 

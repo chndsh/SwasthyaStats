@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import date
 from typing import Dict, List, Optional, Literal, Sequence
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from app.llm.client import OpenAICompatClient, LlmResponse
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,80 @@ class LabReportRaw(BaseModel):
     doctor_name: Optional[str] = None
     report_date: Optional[date] = None
     observations: List[LabObservationRaw] = Field(default_factory=list)
+
+    @field_validator("report_date", mode="before")
+    @classmethod
+    def parse_report_date(cls, v):
+        if not v:
+            return None
+        if isinstance(v, date):
+            return v
+        if isinstance(v, str):
+            v_clean = v.strip()
+            m1 = re.search(r"\b(19\d\d|20\d\d)[/-](\d{1,2})[/-](\d{1,2})\b", v_clean)
+            if m1:
+                try:
+                    return date(int(m1.group(1)), int(m1.group(2)), int(m1.group(3)))
+                except ValueError:
+                    pass
+            m2 = re.search(r"\b(\d{1,2})[/-](\d{1,2})[/-](19\d\d|20\d\d)\b", v_clean)
+            if m2:
+                try:
+                    return date(int(m2.group(3)), int(m2.group(2)), int(m2.group(1)))
+                except ValueError:
+                    pass
+        return v
+
+
+def extract_date_from_text(text: str) -> Optional[date]:
+    """Extract clinical report date using context-aware regex patterns."""
+    if not text:
+        return None
+    date_pat = re.compile(r"\b(20\d\d)[/-](\d{1,2})[/-](\d{1,2})\b")
+    prev_label = ""
+    collected_date = None
+    reporting_date = None
+    any_valid_date = None
+
+    for line in text.splitlines():
+        txt = line.strip()
+        low = txt.lower()
+
+        if "collect" in low:
+            m = date_pat.search(txt)
+            if m:
+                try:
+                    collected_date = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                    break
+                except ValueError:
+                    pass
+        if "report" in low and "date" in low:
+            m = date_pat.search(txt)
+            if m:
+                try:
+                    reporting_date = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                except ValueError:
+                    pass
+
+        m = date_pat.search(txt)
+        if m:
+            try:
+                d = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                if "collect" in prev_label:
+                    collected_date = d
+                    break
+                elif "report" in prev_label:
+                    if not reporting_date:
+                        reporting_date = d
+                elif "birth" not in prev_label and "dob" not in prev_label:
+                    if not any_valid_date and d.year >= 2010:
+                        any_valid_date = d
+            except ValueError:
+                pass
+
+        prev_label = low
+
+    return collected_date or reporting_date or any_valid_date
 
 
 def recover_observations_from_ocr(
@@ -116,6 +190,7 @@ EXTRACTION_SYSTEM_PROMPT = """You extract lab test results from OCR text of a me
 Return strictly valid JSON matching the schema.
 Extract ALL genuine medical lab test results and observations present in the text, do not omit any.
 If present in the report headers or metadata, extract the referring doctor or physician name into doctor_name, and the laboratory name into lab_name.
+If present, extract the report or specimen collection date into report_date formatted as 'YYYY-MM-DD'.
 Each observation must reference the exact line_ids it was extracted from (found in [Line IDs: ...] prefixes or available line IDs).
 CRITICAL RULES:
 - NEVER extract units, column headers, reference range boundaries, or methods as test names (e.g. 'cumm', 'cells', 'HPF', 'Method', 'Unit', 'Ref. Range', 'Turbidimetric' are NOT tests).
@@ -194,6 +269,8 @@ def extract_page(
             raw_text = _clean_json_markdown(resp.content)
             data = json.loads(raw_text)
             report = LabReportRaw.model_validate(data)
+            if not report.report_date:
+                report.report_date = extract_date_from_text(redacted_text)
             if not report.observations:
                 report.observations = recover_observations_from_ocr(
                     redacted_text,
@@ -222,6 +299,8 @@ def extract_page(
         raw_text = _clean_json_markdown(resp.content)
         data = json.loads(raw_text)
         report = LabReportRaw.model_validate(data)
+        if not report.report_date:
+            report.report_date = extract_date_from_text(redacted_text)
         if not report.observations:
             report.observations = recover_observations_from_ocr(
                 redacted_text,

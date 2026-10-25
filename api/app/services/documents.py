@@ -373,6 +373,7 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
 
         scored = score_observations(report.observations, page_lines, lab_dict)
 
+        eff_date = report.report_date or doc.doc_date or (doc.created_at.date() if doc.created_at else date.today())
         for s in scored:
             obs_rec = Observation(
                 user_id=doc.user_id,
@@ -385,7 +386,7 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
                 ref_low=s.normalized_ref_low,
                 ref_high=s.normalized_ref_high,
                 flag=s.obs.flag,
-                collected_at=report.report_date or doc.doc_date,
+                collected_at=eff_date,
                 page_no=page_no,
                 source_line_ids=s.obs.line_ids,
                 status="pending",
@@ -409,6 +410,8 @@ def _run_extraction_stage(doc_id: int, db: Session) -> None:
 
     if last_report_date and not doc.doc_date:
         doc.doc_date = last_report_date
+    elif not doc.doc_date:
+        doc.doc_date = doc.created_at.date() if doc.created_at else date.today()
     if last_doctor_name and not doc.doctor_name:
         doc.doctor_name = last_doctor_name
 
