@@ -12,6 +12,7 @@ from app.llm.keypool import KeyPool, KeyState
 
 logger = logging.getLogger(__name__)
 
+GROQ_MAX_OUTPUT_TOKENS = 1000
 
 
 def strip_think_tags(text: str) -> str:
@@ -107,6 +108,11 @@ class OpenAICompatClient:
         # Merge extra parameters
         if settings.llm_extra_params:
             payload.update(settings.llm_extra_params)
+        if settings.llm_provider == "groq":
+            try:
+                payload[token_param] = min(int(payload[token_param]), GROQ_MAX_OUTPUT_TOKENS)
+            except (KeyError, TypeError, ValueError):
+                payload[token_param] = GROQ_MAX_OUTPUT_TOKENS
 
         # Handle structured output vs tools (Never combined per Section 4.4)
         if json_schema:

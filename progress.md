@@ -647,3 +647,23 @@ The multi-user design specifies bearer authentication for all existing endpoints
 - Flutter WASM build: passed.
 - Browser stack rebuilt from this branch on port `8001`; `/health`, `/`, admin login, and authenticated `/auth/users` returned `200`.
 - Legacy `test_extraction_pipeline.py` remains blocked because its pre-existing fixture constructs the migrated `Patient` alias with removed `name`/legacy fields.
+
+## Task: Clamp Groq extraction output tokens
+
+- **Date:** 2026-10-25
+- **Status:** Completed
+
+### Changes
+
+- Set the default configured maximum output tokens to `1000`.
+- Clamp the effective Groq request token parameter to `1000` after extra parameters are merged, preventing provider rejection when stored settings still contain values such as `1973`.
+- Added a request-payload regression test.
+
+### Verification
+
+- Focused backend LLM and extraction tests: passed, `11 passed`.
+- Flutter tests: passed, `36 tests`.
+- Flutter analyzer: passed.
+- Flutter WASM build: passed.
+- Browser stack rebuilt from `/home/chandish/copilot-worktrees/SwasthyaStats/chndsh-supreme-meme` and restarted as `chndsh-probable-robot` on port `8001`.
+- Live `/health` and `/` returned `200`; Compose working directory and image were confirmed to use this worktree.

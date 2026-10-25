@@ -1,3 +1,4 @@
+import json
 import pytest
 import respx
 import httpx
@@ -93,3 +94,43 @@ def test_llm_client_failover_on_401():
     resp = client.chat([{"role": "user", "content": "test"}], purpose="probe")
     assert resp.content == "Recovered!"
     assert resp.key_label == "good"
+
+
+@respx.mock
+def test_groq_output_tokens_are_clamped_to_provider_limit():
+    mock_db = MagicMock()
+    mock_db.query().scalar.return_value = 0
+
+    client = OpenAICompatClient(mock_db)
+    client.settings_service.get_read_settings = MagicMock(
+        return_value=MagicMock(
+            llm_provider="groq",
+            llm_base_url="https://api.groq.com/openai/v1",
+            llm_model="test-model",
+            llm_key_strategy="failover",
+            llm_daily_token_cap=100000,
+            llm_max_tokens_param="max_tokens",
+            llm_max_output_tokens=1973,
+            llm_extra_params={},
+            llm_extra_headers={},
+            llm_strip_reasoning=True,
+            llm_timeout_s=10,
+            llm_structured_mode="auto",
+            llm_supports_tools=True,
+        )
+    )
+    client.settings_service.get_decrypted_keys = MagicMock(
+        return_value=[{"key": "good_key", "label": "good"}]
+    )
+    route = respx.post("https://api.groq.com/openai/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "ok"}}]},
+        )
+    )
+
+    client.chat([{"role": "user", "content": "test"}], purpose="extract")
+
+    assert route.calls[0].request.content
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["max_tokens"] <= 1000
