@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:app/core/api_client.dart';
 import 'package:app/features/admin/admin_users_controller.dart';
@@ -30,6 +31,38 @@ void main() {
 
     await tester.pump();
 
-    expect(find.byType(BackButton), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+  });
+
+  testWidgets('admin users back button routes to documents', (tester) async {
+    final router = GoRouter(
+      initialLocation: '/admin/users',
+      routes: [
+        GoRoute(
+          path: '/documents',
+          builder: (_, _) => const Text('Documents destination'),
+        ),
+        GoRoute(
+          path: '/admin/users',
+          builder: (_, _) => const AdminUsersScreen(),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          adminUsersControllerProvider.overrideWith(
+            (ref) => AdminUsersController(_FakeApiClient()),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Documents destination'), findsOneWidget);
   });
 }

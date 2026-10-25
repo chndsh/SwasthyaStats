@@ -667,3 +667,22 @@ The multi-user design specifies bearer authentication for all existing endpoints
 - Flutter WASM build: passed.
 - Browser stack rebuilt from `/home/chandish/copilot-worktrees/SwasthyaStats/chndsh-supreme-meme` and restarted as `chndsh-probable-robot` on port `8001`.
 - Live `/health` and `/` returned `200`; Compose working directory and image were confirmed to use this worktree.
+
+## Task: Chunk large-page extraction and route admin back navigation
+
+- **Date:** 2026-10-25
+- **Status:** Completed
+
+### Changes
+
+- Split page OCR into bounded six-line extraction requests and aggregate observations and metadata across all chunks, keeping each Groq request within the 1000-token output ceiling.
+- Preserved the OCR recovery path for chunks whose model response is empty.
+- Changed Admin Users back navigation to explicitly route to `/documents`.
+- Added multi-row extraction and router-target regression tests.
+
+### Verification
+
+- Backend extraction and LLM regressions: passed, `12 passed`.
+- Flutter full suite: passed, `37 tests`.
+- Flutter analyzer: passed with no issues.
+- Flutter WASM build: passed.

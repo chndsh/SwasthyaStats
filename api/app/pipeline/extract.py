@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app.llm.client import OpenAICompatClient, LlmResponse
 
 logger = logging.getLogger(__name__)
+MAX_EXTRACTION_LINES = 6
 
 
 class ExtractionFailed(Exception):
@@ -159,18 +160,13 @@ def to_strict_json_schema(schema: dict) -> dict:
     return copied
 
 
-def extract_page(
+def _extract_chunk(
     redacted_text: str,
     ocr_line_ids: List[int],
     client: OpenAICompatClient,
-    prompt_version: str = "v1",
-    known_test_names: Optional[Dict[str, str]] = None,
+    schema: dict,
+    known_test_names: Optional[Dict[str, str]],
 ) -> LabReportRaw:
-    """Extracts lab observations from a single page of redacted OCR text.
-
-    Retries on JSONDecodeError or schema mismatch before raising ExtractionFailed.
-    Re-raises RuntimeError (e.g. key exhaustion) for the pipeline to catch.
-    """
     messages = [
         {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
         {
@@ -179,9 +175,6 @@ def extract_page(
         },
     ]
 
-    schema = to_strict_json_schema(LabReportRaw.model_json_schema())
-
-    # Attempt 1: Default structured extraction
     last_error: Optional[Exception] = None
     for attempt in range(2):
         try:
@@ -191,8 +184,7 @@ def extract_page(
                 json_schema=schema,
                 temperature=0.0,
             )
-            raw_text = _clean_json_markdown(resp.content)
-            data = json.loads(raw_text)
+            data = json.loads(_clean_json_markdown(resp.content))
             report = LabReportRaw.model_validate(data)
             if not report.observations:
                 report.observations = recover_observations_from_ocr(
@@ -205,7 +197,6 @@ def extract_page(
             last_error = err
             logger.warning(f"Extraction attempt {attempt + 1} parse error: {err}")
 
-    # Attempt 2: Fallback with explicit JSON instructions
     try:
         fallback_messages = messages + [
             {
@@ -219,8 +210,86 @@ def extract_page(
             json_schema=schema,
             temperature=0.0,
         )
-        raw_text = _clean_json_markdown(resp.content)
-        data = json.loads(raw_text)
-        return LabReportRaw.model_validate(data)
+        report = LabReportRaw.model_validate(
+            json.loads(_clean_json_markdown(resp.content))
+        )
+        if not report.observations:
+            report.observations = recover_observations_from_ocr(
+                redacted_text,
+                ocr_line_ids,
+                known_test_names,
+            )
+        return report
     except (json.JSONDecodeError, ValidationError) as err:
-        raise ExtractionFailed(f"Could not parse extraction response after retries: {err}") from err
+        raise ExtractionFailed(
+            f"Could not parse extraction response after retries: {err}"
+        ) from err
+
+
+def extract_page(
+    redacted_text: str,
+    ocr_line_ids: List[int],
+    client: OpenAICompatClient,
+    prompt_version: str = "v1",
+    known_test_names: Optional[Dict[str, str]] = None,
+) -> LabReportRaw:
+    """Extracts lab observations from a single page of redacted OCR text.
+
+    Retries on JSONDecodeError or schema mismatch before raising ExtractionFailed.
+    Re-raises RuntimeError (e.g. key exhaustion) for the pipeline to catch.
+    """
+    schema = to_strict_json_schema(LabReportRaw.model_json_schema())
+    lines = redacted_text.splitlines() or [redacted_text]
+    chunks = [
+        lines[start : start + MAX_EXTRACTION_LINES]
+        for start in range(0, len(lines), MAX_EXTRACTION_LINES)
+    ]
+    reports: List[LabReportRaw] = []
+    for chunk in chunks:
+        chunk_text = "\n".join(chunk)
+        chunk_line_ids = []
+        for line in chunk:
+            match = re.search(r"\[Line IDs:\s*\[([^\]]*)\]\]", line)
+            if match:
+                chunk_line_ids.extend(
+                    int(value.strip())
+                    for value in match.group(1).split(",")
+                    if value.strip().isdigit()
+                )
+        if not chunk_line_ids:
+            start = len(reports) * MAX_EXTRACTION_LINES
+            chunk_line_ids = ocr_line_ids[start : start + len(chunk)]
+        reports.append(
+            _extract_chunk(
+                chunk_text,
+                chunk_line_ids,
+                client,
+                schema,
+                known_test_names,
+            )
+        )
+
+    observations: List[LabObservationRaw] = []
+    seen_line_ids = set()
+    lab_name = None
+    doctor_name = None
+    report_date = None
+    for report in reports:
+        lab_name = lab_name or report.lab_name
+        doctor_name = doctor_name or report.doctor_name
+        report_date = report_date or report.report_date
+        for observation in report.observations:
+            key = tuple(observation.line_ids) or (
+                observation.test_name,
+                observation.value,
+                observation.value_text,
+            )
+            if key not in seen_line_ids:
+                seen_line_ids.add(key)
+                observations.append(observation)
+    return LabReportRaw(
+        lab_name=lab_name,
+        doctor_name=doctor_name,
+        report_date=report_date,
+        observations=observations,
+    )

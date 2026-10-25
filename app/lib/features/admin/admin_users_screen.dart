@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'dart:math';
 
@@ -172,7 +173,11 @@ class AdminUsersScreen extends ConsumerWidget {
     final state = ref.watch(adminUsersControllerProvider);
     return Scaffold(
       appBar: AppBar(
-        leading: const BackButton(),
+        leading: IconButton(
+          tooltip: 'Back to documents',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/documents'),
+        ),
         title: const Text('Admin users'),
       ),
       floatingActionButton: FloatingActionButton(
