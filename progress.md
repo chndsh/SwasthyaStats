@@ -837,3 +837,9 @@ The multi-user design specifies bearer authentication for all existing endpoints
 ### Verification
 - Backend test suite: `83 passed, 5 warnings`.
 - Commit: `f599a62`
+\n## 2026-10-25 — Logo integration\n- Added logo.png from /home/chandish/Documents/SwasthyaStats/logo.png as official branding asset\n- Registered in pubspec.yaml under assets/images/\n- Login screen: logo displayed above sign-in title\n- NavigationRail (tablet/desktop sidebar): logo replaces health_and_safety icon\n- Web: favicon.png, Icon-192.png, Icon-512.png, Icon-maskable-192.png, Icon-maskable-512.png all replaced with logo.png\n- flutter analyze: No issues found
+## 2026-10-25 — README update (openGym-style & Groq honest documentation)
+- Restructured README.md to match the layout of DuarteSantos8/openGym (Header/Badges, Why SwasthyaStats, Quick Start, Features, Architecture & How It Works, Configuration & Providers, Development & Testing, Medical Disclaimer).
+- Explicitly documented Groq as the default LLM provider (Groq LPU endpoint, key pooling, 5s multi-page pacing, Qwen OTPM capping).
+- Documented exact files and functions where AI output is consumed programmatically (extract_page in extract.py, score_observations in normalize.py, ReviewController.build in Flutter review_controller.dart, embed_document in embed_worker.py, ask/execute_tool/parse_citations in orchestrator.py, ask_controller.dart in Flutter).
+

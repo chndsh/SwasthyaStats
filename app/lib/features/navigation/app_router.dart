@@ -104,10 +104,11 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.health_and_safety,
-                      color: Color(0xFF0D9488),
-                      size: 32,
+                    Image.asset(
+                      'assets/images/logo.png',
+                      height: 32,
+                      width: 32,
+                      semanticLabel: 'SwasthyaStats logo',
                     ),
                     if (width > 1024) ...[
                       const SizedBox(width: 8),

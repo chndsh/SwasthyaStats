@@ -50,6 +50,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Image.asset(
+                    'assets/images/logo.png',
+                    height: 80,
+                    semanticLabel: 'SwasthyaStats logo',
+                  ),
+                  const SizedBox(height: 16),
                   const Text(
                     'Sign in to SwasthyaStats',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
