@@ -123,81 +123,75 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
                   ],
                 ),
               ),
-              trailing: Expanded(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Consumer(
-                      builder: (context, ref, _) {
-                        final auth = ref.watch(authControllerProvider);
-                        final user = auth.user;
-                        if (user == null) return const SizedBox.shrink();
-                        final isAdmin = user.isAdmin;
-                        final isExtended = width > 1024;
+              trailing: Consumer(
+                builder: (context, ref, _) {
+                  final auth = ref.watch(authControllerProvider);
+                  final user = auth.user;
+                  if (user == null) return const SizedBox.shrink();
+                  final isAdmin = user.isAdmin;
+                  final isExtended = width > 1024;
 
-                        if (isExtended) {
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      user.email,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      isAdmin ? 'Administrator' : 'Patient',
-                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (isAdmin) ...[
-                                OutlinedButton.icon(
-                                  icon: const Icon(Icons.manage_accounts, size: 18),
-                                  label: const Text('Admin Users', style: TextStyle(fontSize: 12)),
-                                  onPressed: () => context.go('/admin/users'),
-                                ),
-                                const SizedBox(height: 8),
-                              ],
-                              OutlinedButton.icon(
-                                icon: const Icon(Icons.logout, size: 18),
-                                label: const Text('Log out', style: TextStyle(fontSize: 12)),
-                                onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-                              ),
-                            ],
-                          );
-                        }
-
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (isAdmin)
-                              IconButton(
-                                icon: const Icon(Icons.manage_accounts),
-                                tooltip: 'Admin Users',
-                                onPressed: () => context.go('/admin/users'),
-                              ),
-                            IconButton(
-                              icon: const Icon(Icons.logout),
-                              tooltip: 'Log out',
-                              onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+                  if (isExtended) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 24.0, left: 16.0, right: 16.0, bottom: 16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(),
+                          const SizedBox(height: 8),
+                          Text(
+                            user.email,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
                             ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            isAdmin ? 'Administrator' : 'Patient',
+                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 12),
+                          if (isAdmin) ...[
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.manage_accounts, size: 18),
+                              label: const Text('Admin Users', style: TextStyle(fontSize: 12)),
+                              onPressed: () => context.go('/admin/users'),
+                            ),
+                            const SizedBox(height: 8),
                           ],
-                        );
-                      },
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.logout, size: 18),
+                            label: const Text('Log out', style: TextStyle(fontSize: 12)),
+                            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Divider(indent: 8, endIndent: 8),
+                        if (isAdmin)
+                          IconButton(
+                            icon: const Icon(Icons.manage_accounts),
+                            tooltip: 'Admin Users',
+                            onPressed: () => context.go('/admin/users'),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.logout),
+                          tooltip: 'Log out',
+                          onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
               destinations: const [
                 NavigationRailDestination(

@@ -800,3 +800,20 @@ The multi-user design specifies bearer authentication for all existing endpoints
 - Flutter Web Wasm build: compiled successfully (`✓ Built build/web` in 40.1s).
 - Live API container restarted and verified healthy on port 8001.
 
+## Task: Fix blank screen layout assertion in NavigationRail
+
+- **Date:** 2026-10-25
+- **Status:** Completed
+
+### Root Cause
+- `NavigationRail.trailing` in `app/lib/features/navigation/app_router.dart` contained an `Expanded` widget. Flutter's `NavigationRail` does not provide bounded height or flex layout to `trailing`, passing infinite width constraints and throwing `BoxConstraints forces an infinite width` during `performLayout()`. In release WebAssembly builds, this unhandled layout exception caused the application to crash into a blank white screen.
+
+### Changes Made
+- Removed `Expanded` from `NavigationRail.trailing` in `app/lib/features/navigation/app_router.dart` and replaced with an unconstrained `Padding` with `Column(mainAxisSize: MainAxisSize.min)`.
+- Added responsive desktop (1200x800) and mobile (400x800) layout widget tests in `app/test/render_test.dart` asserting that `NavigationRail` and `NavigationBar` render without layout exceptions.
+
+### Verification
+- Flutter test suite: `40 passed` (including `Render app shell as authenticated on desktop` and `Render app shell as authenticated on mobile`).
+- Flutter Web Wasm build: compiled successfully (`✓ Built build/web` in 36.5s).
+- API container restarted and verified healthy on port 8001.
+
