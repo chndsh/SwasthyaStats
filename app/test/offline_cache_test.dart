@@ -24,4 +24,38 @@ void main() {
     expect(labs.length, 1);
     expect(labs.first['test_name'], 'Hemoglobin');
   });
+
+  test('LocalCacheService isolates cache per user', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final user1Cache = LocalCacheService(prefs, userId: 1);
+    final user2Cache = LocalCacheService(prefs, userId: 2);
+
+    await user1Cache.cacheLabs([
+      {'test_name': 'Hemoglobin', 'count': 1}
+    ]);
+    await user1Cache.cacheAskHistory([
+      {'role': 'user', 'text': 'User 1 private question'}
+    ]);
+
+    expect(await user2Cache.getCachedLabs(), isEmpty);
+    expect(await user2Cache.getCachedAskHistory(), isEmpty);
+
+    await user2Cache.cacheLabs([
+      {'test_name': 'WBC', 'count': 5}
+    ]);
+    await user2Cache.cacheAskHistory([
+      {'role': 'user', 'text': 'User 2 question'}
+    ]);
+
+    final u1Labs = await user1Cache.getCachedLabs();
+    final u2Labs = await user2Cache.getCachedLabs();
+    expect(u1Labs.first['test_name'], 'Hemoglobin');
+    expect(u2Labs.first['test_name'], 'WBC');
+
+    final u1Ask = await user1Cache.getCachedAskHistory();
+    final u2Ask = await user2Cache.getCachedAskHistory();
+    expect(u1Ask.first['text'], 'User 1 private question');
+    expect(u2Ask.first['text'], 'User 2 question');
+  });
 }

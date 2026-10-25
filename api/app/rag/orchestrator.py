@@ -57,7 +57,7 @@ def parse_citations(text: str) -> List[CitationRef]:
     return citations
 
 
-def execute_tool(db: Session, tool_name: str, args: Dict[str, Any]) -> Any:
+def execute_tool(db: Session, tool_name: str, args: Dict[str, Any], user_id: int | None = None) -> Any:
     """Safely dispatch tool by name."""
     if tool_name == "get_observations":
         test = args.get("test", "")
@@ -65,21 +65,21 @@ def execute_tool(db: Session, tool_name: str, args: Dict[str, Any]) -> Any:
         to_str = args.get("to_date")
         from_d = date.fromisoformat(from_str) if from_str else None
         to_d = date.fromisoformat(to_str) if to_str else None
-        return get_observations(db, test, from_date=from_d, to_date=to_d)
+        return get_observations(db, test, from_date=from_d, to_date=to_d, user_id=user_id)
 
     elif tool_name == "get_latest_observations":
         tests = args.get("tests", [])
         if isinstance(tests, str):
             tests = [tests]
-        return get_latest_observations(db, tests)
+        return get_latest_observations(db, tests, user_id=user_id)
 
     elif tool_name == "list_tests":
-        return list_tests(db)
+        return list_tests(db, user_id=user_id)
 
     elif tool_name == "search_documents":
         query = args.get("query", "")
         top_k = int(args.get("top_k", 5))
-        return search_documents(db, query, top_k=top_k)
+        return search_documents(db, query, top_k=top_k, user_id=user_id)
 
     logger.warning(f"Unknown tool called: {tool_name}")
     return {"error": f"Unknown tool: {tool_name}"}
@@ -133,7 +133,7 @@ def ask(db: Session, question: str, user_id: int | None = None) -> AskResult:
                 except Exception:
                     fn_args = {}
 
-                tool_result = execute_tool(db, fn_name, fn_args)
+                tool_result = execute_tool(db, fn_name, fn_args, user_id=user_id)
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tc.get("id", "call_default"),
@@ -168,7 +168,7 @@ def ask(db: Session, question: str, user_id: int | None = None) -> AskResult:
             tool_args = {}
 
         if tool_name != "none":
-            tool_result = execute_tool(db, tool_name, tool_args)
+            tool_result = execute_tool(db, tool_name, tool_args, user_id=user_id)
             messages.append({
                 "role": "system",
                 "content": f"Tool '{tool_name}' returned: {json.dumps(tool_result, default=str)}",

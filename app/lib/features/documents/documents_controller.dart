@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
 import '../../core/local_cache.dart';
+import '../auth/auth_controller.dart';
 import 'document_model.dart';
 
 class DocumentsController extends AsyncNotifier<List<DocumentItem>> {
@@ -13,6 +14,13 @@ class DocumentsController extends AsyncNotifier<List<DocumentItem>> {
     ref.onDispose(() {
       _pollingTimer?.cancel();
     });
+
+    final authState = ref.watch(authControllerProvider);
+    if (!authState.isAuthenticated) {
+      _pollingTimer?.cancel();
+      return [];
+    }
+    ref.watch(localCacheServiceProvider);
 
     final docs = await _fetchDocuments();
     _checkPolling(docs);

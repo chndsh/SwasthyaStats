@@ -1,23 +1,26 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../features/auth/auth_controller.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
 
 final localCacheServiceProvider = Provider<LocalCacheService?>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   if (prefs == null) return null;
-  return LocalCacheService(prefs);
+  final userId = ref.watch(currentUserIdProvider);
+  return LocalCacheService(prefs, userId: userId);
 });
 
 class LocalCacheService {
   final SharedPreferences _prefs;
+  final int? userId;
 
-  static const String _docsKey = 'cache_documents_list_v1';
-  static const String _labsKey = 'cache_labs_summary_v1';
-  static const String _askKey = 'cache_ask_history_v1';
+  String get _docsKey => 'cache_documents_list_${userId ?? 0}_v1';
+  String get _labsKey => 'cache_labs_summary_${userId ?? 0}_v1';
+  String get _askKey => 'cache_ask_history_${userId ?? 0}_v1';
 
-  LocalCacheService(this._prefs);
+  LocalCacheService(this._prefs, {this.userId});
 
   Future<void> cacheDocuments(List<Map<String, dynamic>> docs) async {
     final raw = jsonEncode(docs);

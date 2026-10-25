@@ -1,13 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
 import '../../core/local_cache.dart';
+import '../auth/auth_controller.dart';
 import 'ask_model.dart';
 
 final askControllerProvider =
     StateNotifierProvider<AskController, AsyncValue<List<AskMessage>>>(
   (ref) {
+    final authState = ref.watch(authControllerProvider);
     final client = ref.watch(apiClientProvider);
     final cache = ref.watch(localCacheServiceProvider);
+    if (!authState.isAuthenticated) {
+      return AskController(client, null);
+    }
     return AskController(client, cache);
   },
 );

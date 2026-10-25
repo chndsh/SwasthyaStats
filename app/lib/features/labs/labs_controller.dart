@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../core/local_cache.dart';
+import '../auth/auth_controller.dart';
 import 'lab_model.dart';
 
 const Set<String> kDefaultFavourites = {
@@ -15,6 +16,11 @@ const Set<String> kDefaultFavourites = {
 class LabsController extends AsyncNotifier<List<LabTestSummary>> {
   @override
   Future<List<LabTestSummary>> build() async {
+    final authState = ref.watch(authControllerProvider);
+    if (!authState.isAuthenticated) {
+      return [];
+    }
+    ref.watch(localCacheServiceProvider);
     return _fetchTests();
   }
 
@@ -52,11 +58,13 @@ final labsControllerProvider =
 );
 
 class LabFavouritesNotifier extends StateNotifier<Set<String>> {
-  LabFavouritesNotifier(super.initial) {
+  final int? _userId;
+
+  LabFavouritesNotifier(super.initial, [this._userId]) {
     _loadFromPrefs();
   }
 
-  static const String _prefsKey = 'lab_favourites';
+  String get _prefsKey => 'lab_favourites_${_userId ?? 0}';
 
   Future<void> _loadFromPrefs() async {
     try {
@@ -93,5 +101,6 @@ class LabFavouritesNotifier extends StateNotifier<Set<String>> {
 
 final labFavouritesProvider =
     StateNotifierProvider<LabFavouritesNotifier, Set<String>>((ref) {
-  return LabFavouritesNotifier(kDefaultFavourites);
+  final userId = ref.watch(currentUserIdProvider);
+  return LabFavouritesNotifier(kDefaultFavourites, userId);
 });

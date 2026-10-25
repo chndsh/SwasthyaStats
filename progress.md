@@ -736,3 +736,32 @@ The multi-user design specifies bearer authentication for all existing endpoints
 - Container restarted; startup backfill ran on all pre-existing NULL `canonical_test_id` rows.
 - Commit: `12150f5`
 
+## Task: Fix cross-user leakage for labs, test charts, and chat history
+
+- **Date:** 2026-10-25
+- **Status:** Completed
+
+### Root Cause
+1. `LocalCacheService` in `app/lib/core/local_cache.dart` stored documents, labs summary, and chat history under shared global keys (`cache_documents_list_v1`, `cache_labs_summary_v1`, `cache_ask_history_v1`) without user namespacing.
+2. `LabsController`, `AskController`, and `DocumentsController` did not observe `authControllerProvider` in their build/provider methods. When a user logged out and a different user logged in, Riverpod retained the previous user's in-memory state and un-namespaced local cache. Documents appeared cleared only because it had an active background polling timer that overwrote its list after several seconds.
+3. RAG backend tools (`list_tests`, `get_observations`, `get_latest_observations`, `search_documents`) in `api/app/rag/tools.py` and `api/app/rag/orchestrator.py` did not accept or filter queries by `user_id`, allowing multi-user RAG queries to retrieve other users' observations and chunks.
+
+### Changes
+| File | Change |
+|---|---|
+| `app/lib/features/auth/auth_controller.dart` | Added `currentUserIdProvider` derived from `authControllerProvider`. |
+| `app/lib/core/local_cache.dart` | Namespaced all cache keys with `userId` (`cache_documents_list_${userId ?? 0}_v1`, `cache_labs_summary_${userId ?? 0}_v1`, `cache_ask_history_${userId ?? 0}_v1`). Connected `localCacheServiceProvider` to `currentUserIdProvider`. |
+| `app/lib/features/labs/labs_controller.dart` | `LabsController.build()` now observes `authControllerProvider` and `localCacheServiceProvider` to reset and fetch data isolated to the authenticated user. Namespaced `LabFavouritesNotifier` with user ID. |
+| `app/lib/features/ask/ask_controller.dart` | `askControllerProvider` watches `authControllerProvider` and `localCacheServiceProvider`, resetting on logout and loading only the authenticated user's chat history. |
+| `app/lib/features/documents/documents_controller.dart` | `DocumentsController.build()` observes `authControllerProvider` to stop polling and clear state immediately on logout. |
+| `api/app/rag/tools.py` | Added `user_id` filtering to `list_tests`, `get_observations`, `get_latest_observations`, and `search_documents`. |
+| `api/app/rag/orchestrator.py` | Propagated `user_id` through `execute_tool` to all tool dispatches. |
+| `app/test/offline_cache_test.dart` | Added unit test `LocalCacheService isolates cache per user`. |
+| `api/tests/test_rag_tools.py` | Added regression test `test_rag_tools_user_isolation`. |
+
+### Verification
+- Backend tests: `83 passed, 5 warnings`.
+- Flutter unit tests: `38 passed`.
+- Flutter Web Wasm build: compiled successfully (`✓ Built build/web` in 41.0s).
+- Live API container restarted and healthy on port 8001.
+

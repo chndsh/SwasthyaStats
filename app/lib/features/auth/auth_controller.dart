@@ -187,3 +187,8 @@ final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
     );
   },
 );
+
+final currentUserIdProvider = Provider<int?>((ref) {
+  final authState = ref.watch(authControllerProvider);
+  return authState.user?.id;
+});

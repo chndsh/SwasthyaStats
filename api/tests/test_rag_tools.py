@@ -151,3 +151,19 @@ def test_search_documents_returns_ranked(rag_tools_data, monkeypatch):
     assert len(results) >= 1
     assert "SpecialUniqueKeywordMedication" in results[0]["text"]
     assert "score" in results[0]
+
+
+def test_rag_tools_user_isolation(rag_tools_data, monkeypatch):
+    db = rag_tools_data["db"]
+
+    class FakeEmbedEngine:
+        def embed(self, texts):
+            return [[0.05] * 384 for _ in texts]
+
+    from app.pipeline import embed
+    monkeypatch.setattr(embed, "get_embed_engine", lambda: FakeEmbedEngine())
+
+    assert list_tests(db, user_id=999) == []
+    assert get_observations(db, "SpecialRAGTest", user_id=999) == []
+    assert get_latest_observations(db, ["SpecialRAGTest"], user_id=999) == []
+    assert search_documents(db, "SpecialUniqueKeywordMedication", user_id=999) == []

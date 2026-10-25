@@ -15,15 +15,13 @@ from app.pipeline.embed import get_embed_engine
 logger = logging.getLogger(__name__)
 
 
-def list_tests(db: Session) -> List[Dict[str, Any]]:
+def list_tests(db: Session, user_id: int | None = None) -> List[Dict[str, Any]]:
     """List distinct tests with count and latest date for confirmed observations."""
     lab_dict = get_lab_dictionary()
-    obs_list = (
-        db.query(Observation)
-        .filter(Observation.status == "confirmed")
-        .order_by(Observation.collected_at.desc().nullslast(), Observation.id.desc())
-        .all()
-    )
+    q = db.query(Observation).filter(Observation.status == "confirmed")
+    if user_id is not None:
+        q = q.filter(Observation.user_id == user_id)
+    obs_list = q.order_by(Observation.collected_at.desc().nullslast(), Observation.id.desc()).all()
 
     tests_map: Dict[str, Dict[str, Any]] = {}
     for obs in obs_list:
@@ -57,6 +55,7 @@ def get_observations(
     test: str,
     from_date: Optional[date] = None,
     to_date: Optional[date] = None,
+    user_id: int | None = None,
 ) -> List[Dict[str, Any]]:
     """Get confirmed observations for a test, matching alias or raw name."""
     lab_dict = get_lab_dictionary()
@@ -64,6 +63,8 @@ def get_observations(
     canon_id = clean_test if clean_test in lab_dict else _find_canonical_test_id(test, lab_dict)
 
     query = db.query(Observation).filter(Observation.status == "confirmed")
+    if user_id is not None:
+        query = query.filter(Observation.user_id == user_id)
 
     if canon_id:
         alias_names = [clean_test, canon_id.lower()]
@@ -106,11 +107,11 @@ def get_observations(
     return results
 
 
-def get_latest_observations(db: Session, tests: List[str]) -> List[Dict[str, Any]]:
+def get_latest_observations(db: Session, tests: List[str], user_id: int | None = None) -> List[Dict[str, Any]]:
     """Return the single most recent confirmed observation for each test in tests."""
     results: List[Dict[str, Any]] = []
     for t in tests:
-        obs = get_observations(db, t)
+        obs = get_observations(db, t, user_id=user_id)
         if obs:
             sorted_obs = sorted(
                 obs,
@@ -121,7 +122,7 @@ def get_latest_observations(db: Session, tests: List[str]) -> List[Dict[str, Any
     return results
 
 
-def search_documents(db: Session, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+def search_documents(db: Session, query: str, top_k: int = 5, user_id: int | None = None) -> List[Dict[str, Any]]:
     """Hybrid search on chunks using pgvector cosine distance and pg_trgm similarity via RRF."""
     from app.pipeline.embed import get_embed_engine
     engine = get_embed_engine()
@@ -131,7 +132,7 @@ def search_documents(db: Session, query: str, top_k: int = 5) -> List[Dict[str, 
     q_vec = vecs[0]
 
     # Vector cosine similarity using cast(:q_vec, Vector)
-    chunk_rows = (
+    vec_query = (
         db.query(
             Chunk.id,
             Chunk.document_id,
@@ -140,20 +141,30 @@ def search_documents(db: Session, query: str, top_k: int = 5) -> List[Dict[str, 
             (1 - Chunk.embedding.cosine_distance(q_vec)).label("sim"),
         )
         .filter(Chunk.embedding.isnot(None))
-        .order_by(Chunk.embedding.cosine_distance(q_vec).asc())
-        .limit(top_k * 2)
-        .all()
     )
+    if user_id is not None:
+        vec_query = vec_query.filter(Chunk.user_id == user_id)
+    chunk_rows = vec_query.order_by(Chunk.embedding.cosine_distance(q_vec).asc()).limit(top_k * 2).all()
 
     # Trigram similarity
-    trgm_sql = text("""
-        SELECT id, document_id, page, text, similarity(text, :query) AS sim
-        FROM chunks
-        WHERE similarity(text, :query) > 0.05
-        ORDER BY sim DESC
-        LIMIT :k
-    """)
-    trgm_rows = db.execute(trgm_sql, {"query": query, "k": top_k * 2}).fetchall()
+    if user_id is not None:
+        trgm_sql = text("""
+            SELECT id, document_id, page, text, similarity(text, :query) AS sim
+            FROM chunks
+            WHERE user_id = :uid AND similarity(text, :query) > 0.05
+            ORDER BY sim DESC
+            LIMIT :k
+        """)
+        trgm_rows = db.execute(trgm_sql, {"query": query, "k": top_k * 2, "uid": user_id}).fetchall()
+    else:
+        trgm_sql = text("""
+            SELECT id, document_id, page, text, similarity(text, :query) AS sim
+            FROM chunks
+            WHERE similarity(text, :query) > 0.05
+            ORDER BY sim DESC
+            LIMIT :k
+        """)
+        trgm_rows = db.execute(trgm_sql, {"query": query, "k": top_k * 2}).fetchall()
 
     rrf_scores: Dict[int, float] = {}
     chunk_map: Dict[int, Dict[str, Any]] = {}
