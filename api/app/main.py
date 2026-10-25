@@ -33,6 +33,17 @@ async def lifespan(app: FastAPI):
         session.query(Document).filter(
             Document.status.in_(["extracting", "normalizing", "ocr"])
         ).update({"status": "failed"}, synchronize_session=False)
+
+        # Backfill missing canonical_test_id on observations using updated lab dictionary
+        from app.services.documents import get_lab_dictionary
+        from app.pipeline.normalize import _find_canonical_test_id
+        from app.models import Observation
+        lab_dict = get_lab_dictionary()
+        unlinked = session.query(Observation).filter(Observation.canonical_test_id == None).all()
+        for obs in unlinked:
+            cid = _find_canonical_test_id(obs.test_name, lab_dict)
+            if cid:
+                obs.canonical_test_id = cid
         session.commit()
     yield
 

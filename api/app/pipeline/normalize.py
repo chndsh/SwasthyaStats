@@ -16,24 +16,61 @@ class ScoredObservation:
     confidence: float
 
 
+def normalize_test_name(name: str) -> str:
+    """Normalize whitespace, British/American spellings, and common OCR noise."""
+    if not name:
+        return ""
+    s = name.strip().lower()
+    s = re.sub(r"\s+", " ", s)
+    s = re.sub(r"\s*\(\s*", " (", s)
+    s = re.sub(r"\s*\)\s*", ")", s)
+    # OCR artifact normalization: e.g. SGOTIAST -> sgot/ast
+    s = s.replace("sgotiast", "sgot/ast").replace("sgptialt", "sgpt/alt")
+    # British to American normalization for lab terms
+    s = s.replace("leuco", "leuko").replace("haemo", "hemo")
+    return s
+
+
 def _find_canonical_test_id(test_name: str, lab_dictionary: Dict[str, Any]) -> Optional[str]:
+    if not test_name:
+        return None
+
     clean_name = test_name.strip().lower()
 
     # 1. Exact key match
     if clean_name in lab_dictionary:
         return clean_name
 
-    # 2. Match against name or aliases in dictionary
+    norm = normalize_test_name(test_name)
+
+    # 2. Exact match against normalized canon_id, name, or aliases
     for canon_id, info in lab_dictionary.items():
-        if clean_name == info.get("name", "").strip().lower():
+        if norm == normalize_test_name(canon_id) or norm == normalize_test_name(info.get("name", "")):
             return canon_id
         for alias in info.get("aliases", []):
-            if clean_name == alias.strip().lower():
+            if norm == normalize_test_name(alias):
                 return canon_id
 
-    # 3. Substring / word boundary fallback
+    # 3. Base name match (without parentheticals)
+    base = re.sub(r"\s*\(.*?\)", "", norm).strip()
+    if base and len(base) > 2:
+        for canon_id, info in lab_dictionary.items():
+            if base == normalize_test_name(info.get("name", "")):
+                return canon_id
+            for alias in info.get("aliases", []):
+                c_alias = normalize_test_name(alias)
+                c_base = re.sub(r"\s*\(.*?\)", "", c_alias).strip()
+                if base == c_alias or (c_base and base == c_base):
+                    return canon_id
+
+    # 4. Substring / phrase match
     for canon_id, info in lab_dictionary.items():
-        if canon_id in clean_name or info.get("name", "").strip().lower() in clean_name:
+        for alias in info.get("aliases", []):
+            c_alias = normalize_test_name(alias)
+            if len(c_alias) >= 4 and c_alias in norm:
+                return canon_id
+        c_name = normalize_test_name(info.get("name", ""))
+        if len(c_name) >= 4 and c_name in norm:
             return canon_id
 
     return None

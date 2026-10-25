@@ -178,3 +178,49 @@ def test_charts_lab_date_filter(chart_test_data):
     body = r.json()
     assert len(body["points"]) == 1
     assert body["points"][0]["date"] == "2026-06-15"
+
+
+def test_charts_merges_name_variations_into_single_entry(chart_test_data):
+    db = SessionLocal()
+    try:
+        doc = db.query(Document).first()
+        # Create observations with slight name variations
+        obs1 = Observation(
+            user_id=1,
+            document_id=doc.id,
+            test_name="TOTAL LEUCOCYTE COUNT(TC)",
+            value_num=7280.0,
+            unit="cell/uL",
+            status="confirmed",
+            collected_at=datetime.date(2025, 4, 22),
+            page_no=1,
+        )
+        obs2 = Observation(
+            user_id=1,
+            document_id=doc.id,
+            test_name="TOTAL LEUCOCYTE COUNT (TC)",
+            value_num=5050.0,
+            unit="cell/uL",
+            status="confirmed",
+            collected_at=datetime.date(2026, 7, 21),
+            page_no=1,
+        )
+        db.add_all([obs1, obs2])
+        db.commit()
+
+        # Check /api/v1/tests has exactly 1 entry for white blood cell count / total leucocyte count
+        r = client.get("/api/v1/tests", headers=auth_headers())
+        assert r.status_code == 200
+        tests = r.json()
+        wbc_entries = [t for t in tests if "leucocyte" in t["test_name"].lower() or "white blood cell" in t["test_name"].lower()]
+        assert len(wbc_entries) == 1
+        assert wbc_entries[0]["count"] >= 2
+
+        # Check /api/v1/charts/lab returns both points
+        r_chart = client.get(f"/api/v1/charts/lab?test={wbc_entries[0]['test_name']}", headers=auth_headers())
+        assert r_chart.status_code == 200
+        chart_data = r_chart.json()
+        assert len(chart_data["points"]) >= 2
+    finally:
+        db.close()
+

@@ -9,7 +9,7 @@ from app.security.auth import get_current_user
 from app.models import Observation, User
 from app.schemas import LabTestSummary, LabChartResponse, ChartPoint
 from app.services.documents import get_lab_dictionary
-from app.pipeline.normalize import _find_canonical_test_id
+from app.pipeline.normalize import _find_canonical_test_id, normalize_test_name
 
 router = APIRouter(prefix="/api/v1", tags=["Charts"])
 
@@ -44,8 +44,8 @@ def list_available_tests(
             display_name = lab_dict[canon_id].get("name", obs.test_name)
             key = canon_id
         else:
-            display_name = obs.test_name
-            key = obs.test_name.strip().lower()
+            display_name = obs.test_name.strip()
+            key = normalize_test_name(obs.test_name)
 
         if key not in tests_map:
             tests_map[key] = {
@@ -117,16 +117,25 @@ def get_lab_chart(
     )
 
     if canon_id:
-        canon_name = lab_dict.get(canon_id, {}).get("name", "").lower()
+        canon_info = lab_dict.get(canon_id, {})
+        canon_name = canon_info.get("name", "").lower()
+        alias_names = [a.lower() for a in canon_info.get("aliases", [])]
+        matched_conditions = [
+            Observation.canonical_test_id == canon_id,
+            func.lower(Observation.test_name) == clean_test,
+            func.lower(Observation.test_name) == canon_name,
+        ]
+        for a in alias_names:
+            matched_conditions.append(func.lower(Observation.test_name) == a)
+        query = query.filter(or_(*matched_conditions))
+    else:
+        norm_test = normalize_test_name(test)
         query = query.filter(
             or_(
-                Observation.canonical_test_id == canon_id,
                 func.lower(Observation.test_name) == clean_test,
-                func.lower(Observation.test_name) == canon_name,
+                func.lower(Observation.test_name) == norm_test,
             )
         )
-    else:
-        query = query.filter(func.lower(Observation.test_name) == clean_test)
 
     if from_date:
         query = query.filter(Observation.collected_at >= from_date)
