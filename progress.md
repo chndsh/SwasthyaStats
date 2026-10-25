@@ -817,3 +817,23 @@ The multi-user design specifies bearer authentication for all existing endpoints
 - Flutter Web Wasm build: compiled successfully (`✓ Built build/web` in 36.5s).
 - API container restarted and verified healthy on port 8001.
 
+
+## Task: Fix Groq OTPM rate-limit causing 500 on /ask endpoint
+
+- **Date:** 2026-10-25
+- **Status:** Completed
+
+### Root Cause
+- `llm_max_output_tokens` defaults to `2000`. Groq free-tier enforces an OTPM cap of 1000 for `qwen/qwen3.8-27b` models.
+- Sending `max_tokens: 2000` to Groq immediately triggered a `429` with message `"Request too large... Limit 1000, Requested 1865. reduce max_tokens"` before any tokens were generated.
+- This OTPM 429 propagated as a `RuntimeError` through `orchestrator_ask()`, which FastAPI converted to an HTTP 500. Flutter's Dio received the 500 and threw a `DioException`, surfaced to the user as a crash.
+
+### Changes Made
+| File | Change |
+|---|---|
+| `api/app/llm/client.py` | Added `max_tokens` optional param to `chat()`. For `purpose="route"`, caps tokens to `min(settings.llm_max_output_tokens, 400)`. For Groq + Qwen models with `max_tokens > 1000`, caps to `1000`. On OTPM 429 responses (text contains `reduce max_tokens`), auto-reduces `max_tokens` to `enforced_limit - 10` and retries without cycling key. |
+| `api/app/routers/ask.py` | Wrapped `orchestrator_ask()` call in try/except. Rate-limit / exhausted errors → `200 AskResponse` with user-friendly busy message. Other errors → `200 AskResponse` with "check your LLM settings" message. Prevents HTTP 500 from reaching Flutter. |
+
+### Verification
+- Backend test suite: `83 passed, 5 warnings`.
+- Commit: `f599a62`
