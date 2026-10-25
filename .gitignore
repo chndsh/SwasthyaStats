@@ -37,3 +37,8 @@ app/build/
 .vscode/
 *.swp
 *.swo
+
+.superpowers/
+architecture.md
+progress.md
+AGENTS.md
