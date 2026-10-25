@@ -686,3 +686,26 @@ The multi-user design specifies bearer authentication for all existing endpoints
 - Flutter full suite: passed, `37 tests`.
 - Flutter analyzer: passed with no issues.
 - Flutter WASM build: passed.
+
+## Task: Restore single-request extraction and align with main branch
+
+- **Date:** 2026-10-25
+- **Status:** Completed
+
+### Root Cause
+- Artificial 6-line chunking (`MAX_EXTRACTION_LINES = 6`) divided OCR text into arbitrary slices, stripping table headers from subsequent chunks and truncating multi-line lab test entries, which caused missing tests.
+- Sending 5-6 rapid requests per page in a synchronous loop rapidly consumed Groq RPM and free-tier OTPM rate limits, causing repeated 429 errors and pipeline abortion.
+- Clamping Groq output tokens to 1000 in `client.py` artificially constrained valid model responses.
+
+### Changes
+- Restored `extract_page` in `api/app/pipeline/extract.py` to send complete page text in a single LLM request (1 page = 1 request), preserving full table headers and row context.
+- Retained `recover_observations_from_ocr` as a full-page fallback only when LLM returns no observations.
+- Removed artificial `GROQ_MAX_OUTPUT_TOKENS = 1000` clamp in `api/app/llm/client.py`.
+- Restored `llm_max_output_tokens` default to 2000 in `api/app/schemas.py` and `api/app/services/settings.py`.
+- Updated test suites in `api/tests/test_extract.py` and `api/tests/test_llm_client.py`.
+
+### Verification
+- Backend unit and integration test suite: passed, `80 passed, 5 warnings`.
+- Flutter full test suite: passed, `37 tests passed`.
+- Live API container restarted and verified healthy on port 8001.
+

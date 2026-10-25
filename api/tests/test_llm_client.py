@@ -97,7 +97,7 @@ def test_llm_client_failover_on_401():
 
 
 @respx.mock
-def test_groq_output_tokens_are_clamped_to_provider_limit():
+def test_groq_output_tokens_honor_configured_settings():
     mock_db = MagicMock()
     mock_db.query().scalar.return_value = 0
 
@@ -133,4 +133,4 @@ def test_groq_output_tokens_are_clamped_to_provider_limit():
 
     assert route.calls[0].request.content
     payload = json.loads(route.calls[0].request.content)
-    assert payload["max_tokens"] <= 1000
+    assert payload["max_tokens"] == 1973

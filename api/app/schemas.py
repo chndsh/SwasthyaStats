@@ -52,7 +52,7 @@ class AppSettingsRead(BaseModel):
     llm_strip_reasoning: bool = True
     llm_concurrency: int = 2
     llm_timeout_s: int = 60
-    llm_max_output_tokens: int = 1000
+    llm_max_output_tokens: int = 2000
     llm_daily_token_cap: int = 200000
     privacy_redact_pii: bool = True
     ocr_languages: List[str] = ["en"]

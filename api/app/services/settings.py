@@ -129,7 +129,7 @@ class SettingsService:
             llm_strip_reasoning=raw.get("llm.strip_reasoning", True),
             llm_concurrency=raw.get("llm.concurrency", 2),
             llm_timeout_s=raw.get("llm.timeout_s", 60),
-            llm_max_output_tokens=raw.get("llm.max_output_tokens", 1000),
+            llm_max_output_tokens=raw.get("llm.max_output_tokens", 2000),
             llm_daily_token_cap=raw.get("llm.daily_token_cap", 200000),
             privacy_redact_pii=raw.get("privacy.redact_pii", True),
             ocr_languages=raw.get("ocr.languages", ["en"]),

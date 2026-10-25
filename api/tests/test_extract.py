@@ -112,42 +112,31 @@ def test_recover_observations_from_page_two_ocr_when_llm_returns_empty():
     assert result[0].line_ids == [69]
 
 
-def test_extract_page_chunks_large_ocr_and_aggregates_all_observations():
-    def payload(start: int, end: int) -> str:
-        return json.dumps(
-            {
-                "lab_name": "Lab",
-                "report_date": None,
-                "observations": [
-                    {
-                        "test_name": f"Test {index}",
-                        "value": float(index),
-                        "line_ids": [index],
-                    }
-                    for index in range(start, end + 1)
-                ],
-            }
-        )
+def test_extract_page_extracts_all_observations_in_single_request():
+    payload = json.dumps(
+        {
+            "lab_name": "Lab",
+            "report_date": None,
+            "observations": [
+                {
+                    "test_name": f"Test {index}",
+                    "value": float(index),
+                    "line_ids": [index],
+                }
+                for index in range(1, 13)
+            ],
+        }
+    )
 
     client = MagicMock()
-    client.chat.side_effect = [
-        LlmResponse(
-            content=payload(1, 6),
-            prompt_tokens=100,
-            completion_tokens=900,
-            latency_ms=200,
-            model_used="test-model",
-            key_label="k1",
-        ),
-        LlmResponse(
-            content=payload(7, 12),
-            prompt_tokens=100,
-            completion_tokens=900,
-            latency_ms=200,
-            model_used="test-model",
-            key_label="k1",
-        ),
-    ]
+    client.chat.return_value = LlmResponse(
+        content=payload,
+        prompt_tokens=100,
+        completion_tokens=400,
+        latency_ms=200,
+        model_used="test-model",
+        key_label="k1",
+    )
     ocr = "\n".join(
         f"[Line IDs: [{index}]]: Test {index} | {index}"
         for index in range(1, 13)
@@ -162,4 +151,4 @@ def test_extract_page_chunks_large_ocr_and_aggregates_all_observations():
     assert [observation.test_name for observation in result.observations] == [
         f"Test {index}" for index in range(1, 13)
     ]
-    assert client.chat.call_count == 2
+    assert client.chat.call_count == 1
