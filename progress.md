@@ -709,3 +709,30 @@ The multi-user design specifies bearer authentication for all existing endpoints
 - Flutter full test suite: passed, `37 tests passed`.
 - Live API container restarted and verified healthy on port 8001.
 
+## Task: Deduplicate lab test entries in tests/charts list
+
+- **Date:** 2026-10-25
+- **Status:** Completed
+
+### Root Cause
+- `_find_canonical_test_id` used exact lowercase string matching only. OCR variants with minor whitespace differences (`TOTAL LEUCOCYTE COUNT (TC)` vs `TOTAL LEUCOCYTE COUNT(TC)`) or OCR artifacts (`SGOTIAST` vs `SGOT/AST`) produced different keys and showed as separate entries.
+- Many common CBC tests (PCV, MCV, MCH, MCHC, RBC, CRP, ESR) were absent from `lab_dictionary.json`, so any two OCR variants of the same test would each get their own raw-lowercase key.
+- `charts.py` `get_lab_chart` only queried by `canonical_test_id` and exact string — not all aliases — so variant-named observations were excluded from chart data.
+
+### Changes
+| File | Change |
+|---|---|
+| `api/app/data/lab_dictionary.json` | Added 8 new canonical entries (PCV, MCV, MCH, MCHC, RBC, CRP, ESR, platelet_count). Expanded alias lists for WBC, SGPT, SGOT, sodium, potassium, calcium. |
+| `api/data/lab_dictionary.json` | Synced copy of the above. |
+| `api/app/pipeline/normalize.py` | Replaced `_find_canonical_test_id` with multi-step resolution: exact key → normalized name/alias (via new `normalize_test_name` helper) → base name without parens → substring match. `normalize_test_name` handles leuco→leuko, haemo→hemo, OCR artifacts, whitespace and parenthetical stripping. |
+| `api/app/routers/charts.py` | `list_available_tests`: uses `normalize_test_name` as fallback key for unrecognized tests. `get_lab_chart`: OR filter now includes all aliases from the canonical entry, so all variant-named observations are returned. |
+| `api/app/main.py` | Added startup backfill: re-resolves `canonical_test_id` for all `Observation` rows where it is `NULL`, runs once at startup inside `lifespan`. |
+| `api/tests/test_normalize.py` | Added `test_find_canonical_test_id_matches_variations` covering 11 OCR/spacing variants. |
+| `api/tests/test_charts_api.py` | Added `test_charts_merges_name_variations_into_single_entry` asserting `/api/v1/tests` returns 1 WBC entry for two differently-spelled observations. |
+
+### Verification
+- Backend test suite: passed, `82 passed, 5 warnings`.
+- Live `/api/v1/tests`: `White Blood Cell Count` shows `count: 8` (all leucocyte variants merged); CRP `count: 2`; RBC `count: 2` — no duplicate entries.
+- Container restarted; startup backfill ran on all pre-existing NULL `canonical_test_id` rows.
+- Commit: `12150f5`
+
