@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../auth/auth_controller.dart';
+import '../navigation/user_menu_button.dart';
 import 'settings_controller.dart';
 import 'settings_model.dart';
 
@@ -64,6 +67,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             tooltip: 'Reload',
             onPressed: () => notifier.loadAll(),
           ),
+          const UserMenuButton(),
+          const SizedBox(width: 8),
         ],
       ),
       body: state.settings.when(
@@ -105,6 +110,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _buildAccountSection(),
+                    const SizedBox(height: 24),
                     _buildProviderSection(notifier, state.models),
                     const SizedBox(height: 24),
                     _buildKeyPoolSection(settings, notifier),
@@ -119,6 +126,89 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildAccountSection() {
+    final auth = ref.watch(authControllerProvider);
+    final user = auth.user;
+    if (user == null) return const SizedBox.shrink();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.account_circle, color: Color(0xFF0D9488), size: 28),
+                const SizedBox(width: 8),
+                const Text(
+                  'Account & Session',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: user.isAdmin ? const Color(0xFFE6FFFA) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: user.isAdmin ? const Color(0xFF0D9488) : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Text(
+                    user.isAdmin ? 'Administrator' : 'Patient',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: user.isAdmin ? const Color(0xFF0D9488) : Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              user.email,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            if (user.displayName != null && user.displayName!.isNotEmpty)
+              Text(
+                user.displayName!,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                if (user.isAdmin)
+                  FilledButton.tonalIcon(
+                    icon: const Icon(Icons.manage_accounts, size: 18),
+                    label: const Text('Admin Users'),
+                    onPressed: () => context.go('/admin/users'),
+                  ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.password, size: 18),
+                  label: const Text('Change Password'),
+                  onPressed: () => context.go('/change-password'),
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade700,
+                    side: BorderSide(color: Colors.red.shade200),
+                  ),
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: const Text('Log out'),
+                  onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

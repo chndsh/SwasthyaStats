@@ -8,6 +8,7 @@ import 'documents_controller.dart';
 import 'document_model.dart';
 import '../../core/api_client.dart';
 import '../../core/connectivity.dart';
+import '../navigation/user_menu_button.dart';
 
 
 class DocumentsScreen extends ConsumerStatefulWidget {
@@ -311,6 +312,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                   tooltip: 'Refresh',
                   onPressed: () => ref.read(documentsControllerProvider.notifier).refresh(),
                 ),
+                const UserMenuButton(),
+                const SizedBox(width: 8),
               ],
             ),
       floatingActionButton: _isSelectMode

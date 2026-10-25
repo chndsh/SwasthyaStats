@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/connectivity.dart';
+import '../navigation/user_menu_button.dart';
 import 'labs_controller.dart';
 import 'lab_model.dart';
 
@@ -52,6 +53,8 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
             onPressed: () => ref.read(labsControllerProvider.notifier).refresh(),
             tooltip: 'Refresh',
           ),
+          const UserMenuButton(),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(

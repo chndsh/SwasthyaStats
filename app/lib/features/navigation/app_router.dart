@@ -91,7 +91,6 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
             ),
           ],
         ),
-        floatingActionButton: _logoutButton(context),
       );
     } else {
       return Scaffold(
@@ -124,6 +123,82 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
                   ],
                 ),
               ),
+              trailing: Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Consumer(
+                      builder: (context, ref, _) {
+                        final auth = ref.watch(authControllerProvider);
+                        final user = auth.user;
+                        if (user == null) return const SizedBox.shrink();
+                        final isAdmin = user.isAdmin;
+                        final isExtended = width > 1024;
+
+                        if (isExtended) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      user.email,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      isAdmin ? 'Administrator' : 'Patient',
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isAdmin) ...[
+                                OutlinedButton.icon(
+                                  icon: const Icon(Icons.manage_accounts, size: 18),
+                                  label: const Text('Admin Users', style: TextStyle(fontSize: 12)),
+                                  onPressed: () => context.go('/admin/users'),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.logout, size: 18),
+                                label: const Text('Log out', style: TextStyle(fontSize: 12)),
+                                onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isAdmin)
+                              IconButton(
+                                icon: const Icon(Icons.manage_accounts),
+                                tooltip: 'Admin Users',
+                                onPressed: () => context.go('/admin/users'),
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.logout),
+                              tooltip: 'Log out',
+                              onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
               destinations: const [
                 NavigationRailDestination(
                   icon: Icon(Icons.description_outlined),
@@ -151,33 +226,8 @@ class ScaffoldWithResponsiveNav extends StatelessWidget {
             Expanded(child: _InstallBannerWrapper(child: child)),
           ],
         ),
-        floatingActionButton: _logoutButton(context),
       );
     }
-  }
-
-  Widget _logoutButton(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, child) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (ref.watch(authControllerProvider).user?.isAdmin == true)
-            FloatingActionButton.small(
-              heroTag: 'admin-users',
-              tooltip: 'Admin users',
-              onPressed: () => context.go('/admin/users'),
-              child: const Icon(Icons.manage_accounts),
-            ),
-          const SizedBox(height: 8),
-          FloatingActionButton.small(
-            heroTag: 'logout',
-            tooltip: 'Log out',
-            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-            child: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-    );
   }
 }
 

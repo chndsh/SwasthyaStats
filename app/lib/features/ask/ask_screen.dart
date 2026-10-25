@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'ask_controller.dart';
 import 'ask_model.dart';
 import '../../core/connectivity.dart';
+import '../navigation/user_menu_button.dart';
 
 
 class AskScreen extends ConsumerStatefulWidget {
@@ -123,6 +124,8 @@ class _AskScreenState extends ConsumerState<AskScreen> {
               }
             },
           ),
+          const UserMenuButton(),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
@@ -160,6 +163,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                             children: [
                               'What was my last HbA1c?',
                               'Are any results abnormal?',
+                              'What should I ask my doctor about my results?',
                               'Show my lipid profile trends',
                               'List all my recorded blood tests',
                             ]

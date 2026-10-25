@@ -765,3 +765,38 @@ The multi-user design specifies bearer authentication for all existing endpoints
 - Flutter Web Wasm build: compiled successfully (`✓ Built build/web` in 41.0s).
 - Live API container restarted and healthy on port 8001.
 
+## Task: Relocate Admin Users and Log Out buttons and expand RAG system prompt
+
+- **Date:** 2026-10-25
+- **Status:** Completed
+
+### Decisions & Rationale
+1. **Relocate Admin & Logout Buttons**:
+   - Removed awkward `FloatingActionButton` overlay from `app_router.dart` so it no longer obscures bottom-right screen content.
+   - Added `trailing` in `NavigationRail` (for desktop/tablet) displaying the user's email, role, and explicit action buttons for Admin Users (if admin) and Log out.
+   - Added a dedicated "Account & Session" card in `SettingsScreen` displaying user email, role badge, Manage Users button (if admin), Change Password, and Log out.
+   - Added a responsive `UserMenuButton` avatar in the top `AppBar` of all primary screens (Documents, Labs, Ask, Settings), providing quick popup access to user info, Admin Users, Change Password, and Log out from any view.
+2. **Expand RAG Prompting**:
+   - Updated `SYSTEM_PROMPT` in `api/app/rag/prompts.py` to lift artificial restrictions: encourages open, empathetic explanations of health records, numbers, and trends in accessible language.
+   - Instructed assistant to proactively help patients formulate clear, relevant questions to ask their doctor at their next consultation (especially for abnormal, borderline, or trending results).
+   - Added explicit multilingual instructions to respond naturally in the user's requested language (e.g. Nepali, Hindi, Spanish), translating medical concepts and doctor questions accurately.
+   - Added router instruction in `ROUTER_SYSTEM_PROMPT` to recognize queries in any language and map them to standard English test names.
+   - Added doctor question suggested chips in `AskScreen`.
+
+### Changes Made
+| File | Change |
+|---|---|
+| `app/lib/features/navigation/user_menu_button.dart` | Created `UserMenuButton` popup menu with account summary, Admin Users, Change Password, and Log out. |
+| `app/lib/features/navigation/app_router.dart` | Removed floating action buttons; added `NavigationRail.trailing` account controls. |
+| `app/lib/features/settings/settings_screen.dart` | Added Account & Session card at the top with user info, Manage Users, and Log out actions. |
+| `app/lib/features/documents/documents_screen.dart` | Added `UserMenuButton` to AppBar. |
+| `app/lib/features/labs/labs_screen.dart` | Added `UserMenuButton` to AppBar. |
+| `app/lib/features/ask/ask_screen.dart` | Added `UserMenuButton` to AppBar and doctor question prompt chip. |
+| `api/app/rag/prompts.py` | Expanded `SYSTEM_PROMPT` and `ROUTER_SYSTEM_PROMPT` for open record communication, doctor question framing, and multilingual support. |
+
+### Verification
+- Flutter test suite: `38 passed`.
+- Backend test suite: `83 passed, 5 warnings`.
+- Flutter Web Wasm build: compiled successfully (`✓ Built build/web` in 40.1s).
+- Live API container restarted and verified healthy on port 8001.
+
