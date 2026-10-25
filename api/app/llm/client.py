@@ -73,6 +73,7 @@ class OpenAICompatClient:
         tools: Optional[List[Dict[str, Any]]] = None,
         temperature: float = 0.0,
         override_model: Optional[str] = None,
+        max_tokens: Optional[int] = None,
     ) -> LlmResponse:
         settings = self.settings_service.get_read_settings()
         keys = self.settings_service.get_decrypted_keys()
@@ -101,7 +102,16 @@ class OpenAICompatClient:
 
         # Token parameter configuration
         token_param = settings.llm_max_tokens_param or "max_tokens"
-        payload[token_param] = settings.llm_max_output_tokens
+        if max_tokens is not None:
+            payload[token_param] = max_tokens
+        elif purpose == "route":
+            # Routing queries only need a small token budget for tool calls
+            payload[token_param] = min(settings.llm_max_output_tokens, 400)
+        elif "groq.com" in base_url and settings.llm_max_output_tokens > 1000 and "qwen" in model.lower():
+            # Groq free tier enforces strict 1000 OTPM on Qwen models
+            payload[token_param] = 1000
+        else:
+            payload[token_param] = settings.llm_max_output_tokens
 
         # Merge extra parameters
         if settings.llm_extra_params:
@@ -207,6 +217,20 @@ class OpenAICompatClient:
                     continue
 
                 elif resp.status_code == 429:
+                    # Check if 429 is due to OTPM limit exceeding max_tokens
+                    limit_match = re.search(r"Limit\s+(\d+)", resp.text)
+                    if ("reduce max_tokens" in resp.text or "OTPM" in resp.text) and limit_match:
+                        enforced_limit = int(limit_match.group(1))
+                        current_toks = payload.get(token_param, 0)
+                        if current_toks > enforced_limit:
+                            new_toks = max(100, enforced_limit - 10)
+                            logger.info(
+                                f"Reducing {token_param} from {current_toks} to {new_toks} "
+                                f"per provider OTPM limit."
+                            )
+                            payload[token_param] = new_toks
+                            continue
+
                     retry_after = 5.0
                     header_val = resp.headers.get("retry-after")
                     if header_val:
